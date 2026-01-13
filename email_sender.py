@@ -61,8 +61,7 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
         server.starttls()
         server.login(smtp_email, smtp_password)
         
-        text = msg.as_string()
-        server.sendmail(smtp_email, to_email, text)
+        server.sendmail(smtp_email, to_email, msg.as_bytes())
         server.quit()
         
         return True, "이메일이 성공적으로 전송되었습니다."
