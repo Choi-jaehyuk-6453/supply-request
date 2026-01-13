@@ -136,31 +136,53 @@ if menu == "신청서 작성":
             st.metric("총 합계 금액", f"₩{total_amount:,.0f}")
     
     else:
-        st.info("피복 신청 품목을 입력해주세요. 행 추가는 표 하단의 + 버튼을 클릭하세요.")
+        st.info("피복 신청 품목을 입력해주세요.")
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = pd.DataFrame({
                 '업종': ['경비직'],
                 '직책': ['경비원'],
                 '근무자': [''],
-                '상의': ['100'],
-                '하의': ['100'],
+                '상의': [''],
+                '하의': [''],
                 '모자': [''],
-                '품목': ['회색동복']
+                '품목': ['']
             })
+        
+        col_add, col_del = st.columns([1, 1])
+        with col_add:
+            if st.button("행 추가", key="add_uniform_row"):
+                new_row = pd.DataFrame({
+                    '업종': ['경비직'],
+                    '직책': ['경비원'],
+                    '근무자': [''],
+                    '상의': [''],
+                    '하의': [''],
+                    '모자': [''],
+                    '품목': ['']
+                })
+                st.session_state.uniform_items = pd.concat([st.session_state.uniform_items, new_row], ignore_index=True)
+                st.rerun()
+        
+        with col_del:
+            if len(st.session_state.uniform_items) > 1:
+                if st.button("마지막 행 삭제", key="del_uniform_row"):
+                    st.session_state.uniform_items = st.session_state.uniform_items.iloc[:-1]
+                    st.rerun()
         
         edited_uniform = st.data_editor(
             st.session_state.uniform_items,
-            num_rows="dynamic",
+            num_rows="fixed",
             use_container_width=True,
+            hide_index=True,
             column_config={
-                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True, width="small"),
-                '직책': st.column_config.TextColumn('직책', default='경비원', width="small"),
-                '근무자': st.column_config.TextColumn('근무자', default='', width="small"),
-                '상의': st.column_config.TextColumn('상의', default='', width="small"),
-                '하의': st.column_config.TextColumn('하의', default='', width="small"),
-                '모자': st.column_config.TextColumn('모자', default='', width="small"),
-                '품목': st.column_config.TextColumn('품목 (직접 입력)', default='', width="large")
+                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], required=True, width="small"),
+                '직책': st.column_config.TextColumn('직책', width="small"),
+                '근무자': st.column_config.TextColumn('근무자', width="small"),
+                '상의': st.column_config.TextColumn('상의', width="small"),
+                '하의': st.column_config.TextColumn('하의', width="small"),
+                '모자': st.column_config.TextColumn('모자', width="small"),
+                '품목': st.column_config.TextColumn('품목 (직접 입력)', width="large")
             },
             column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목'],
             key="uniform_editor"
