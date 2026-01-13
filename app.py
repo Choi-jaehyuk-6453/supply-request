@@ -136,17 +136,17 @@ if menu == "신청서 작성":
             st.metric("총 합계 금액", f"₩{total_amount:,.0f}")
     
     else:
-        st.info("피복 신청 품목을 입력해주세요. 업종별로 구분하여 입력합니다.")
+        st.info("피복 신청 품목을 입력해주세요. 행 추가는 표 하단의 + 버튼을 클릭하세요.")
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = pd.DataFrame({
                 '업종': ['경비직'],
                 '직책': ['경비원'],
                 '근무자': [''],
-                '상의사이즈': [100],
-                '하의사이즈': [100],
-                '품목': ['회색동복'],
-                '단가': [50000]
+                '상의': ['100'],
+                '하의': ['100'],
+                '모자': [''],
+                '품목': ['회색동복']
             })
         
         edited_uniform = st.data_editor(
@@ -154,14 +154,15 @@ if menu == "신청서 작성":
             num_rows="dynamic",
             use_container_width=True,
             column_config={
-                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], required=True),
-                '직책': st.column_config.TextColumn('직책'),
-                '근무자': st.column_config.TextColumn('근무자'),
-                '상의사이즈': st.column_config.NumberColumn('상의 사이즈', min_value=90, max_value=120),
-                '하의사이즈': st.column_config.NumberColumn('하의 사이즈', min_value=90, max_value=120),
-                '품목': st.column_config.TextColumn('품목', required=True),
-                '단가': st.column_config.NumberColumn('단가', min_value=0, format="₩%d")
-            }
+                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True),
+                '직책': st.column_config.TextColumn('직책', default='경비원'),
+                '근무자': st.column_config.TextColumn('근무자', default=''),
+                '상의': st.column_config.TextColumn('상의 사이즈', default=''),
+                '하의': st.column_config.TextColumn('하의 사이즈', default=''),
+                '모자': st.column_config.TextColumn('모자 사이즈', default=''),
+                '품목': st.column_config.TextColumn('품목', default='', required=True)
+            },
+            key="uniform_editor"
         )
         
         st.session_state.uniform_items = edited_uniform
@@ -212,10 +213,10 @@ if menu == "신청서 작성":
                                 'job_type': row['업종'],
                                 'position': row['직책'],
                                 'worker': row['근무자'],
-                                'top_size': row['상의사이즈'],
-                                'bottom_size': row['하의사이즈'],
-                                'product': row['품목'],
-                                'unit_price': int(row['단가']) if pd.notna(row['단가']) else 0
+                                'top_size': row['상의'],
+                                'bottom_size': row['하의'],
+                                'hat_size': row['모자'],
+                                'product': row['품목']
                             })
                     form_data['items'] = items
                 

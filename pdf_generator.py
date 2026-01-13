@@ -141,14 +141,13 @@ def generate_uniform_pdf(data, output_path):
     items = data.get('items', [])
     
     header = [
-        Paragraph('업종', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('직책', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('근무자', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('상의', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('하의', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('품목', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('단가', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('합계', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('업종', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('직책', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('근무자', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('상의', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('하의', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('모자', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('품목', get_korean_style('h', 9, TA_CENTER, bold=True)),
     ]
     
     table_data = [header]
@@ -156,34 +155,26 @@ def generate_uniform_pdf(data, output_path):
     management_items = [item for item in items if item.get('job_type') == '관리직']
     security_items = [item for item in items if item.get('job_type') == '경비직']
     
-    total_amount = 0
-    
     def add_items_to_table(items_list, job_type):
-        nonlocal total_amount
         if not items_list:
             table_data.append([
-                Paragraph(job_type, get_korean_style('c', 8, TA_CENTER)),
-                '', '', '', '', '', '', ''
+                Paragraph(job_type, get_korean_style('c', 9, TA_CENTER)),
+                '', '', '', '', '', ''
             ])
         else:
             for i, item in enumerate(items_list):
-                unit_price = item.get('unit_price', 0)
-                quantity = 1
-                subtotal = unit_price * quantity
-                total_amount += subtotal
-                
                 top_size = item.get('top_size', '')
                 bottom_size = item.get('bottom_size', '')
+                hat_size = item.get('hat_size', '')
                 
                 row = [
-                    Paragraph(job_type if i == 0 else '', get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(item.get('position', ''), get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(item.get('worker', ''), get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(str(top_size), get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(str(bottom_size), get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(item.get('product', ''), get_korean_style('c', 8, TA_LEFT)),
-                    Paragraph(f"{unit_price:,}" if unit_price else '', get_korean_style('c', 8, TA_RIGHT)),
-                    Paragraph(f"{subtotal:,}" if subtotal else '', get_korean_style('c', 8, TA_RIGHT)),
+                    Paragraph(job_type if i == 0 else '', get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(item.get('position', ''), get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(item.get('worker', ''), get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(str(top_size) if top_size else '', get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(str(bottom_size) if bottom_size else '', get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(str(hat_size) if hat_size else '', get_korean_style('c', 9, TA_CENTER)),
+                    Paragraph(item.get('product', ''), get_korean_style('c', 9, TA_LEFT)),
                 ]
                 table_data.append(row)
     
@@ -192,25 +183,18 @@ def generate_uniform_pdf(data, output_path):
     
     if len(table_data) < 6:
         for _ in range(6 - len(table_data)):
-            table_data.append(['', '', '', '', '', '', '', ''])
+            table_data.append(['', '', '', '', '', '', ''])
     
-    table_data.append([
-        '', '', '', '', '',
-        Paragraph('총액', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        '',
-        Paragraph(f"{total_amount:,}", get_korean_style('c', 8, TA_RIGHT, bold=True)),
-    ])
-    
-    col_widths = [18*mm, 18*mm, 22*mm, 15*mm, 15*mm, 40*mm, 22*mm, 22*mm]
+    col_widths = [20*mm, 20*mm, 25*mm, 18*mm, 18*mm, 18*mm, 55*mm]
     
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
-        ('FONT', (0, 0), (-1, -1), 'NanumGothic', 8),
+        ('FONT', (0, 0), (-1, -1), 'NanumGothic', 9),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('ROWHEIGHT', (0, 0), (-1, -1), 10*mm),
+        ('ROWHEIGHT', (0, 0), (-1, -1), 12*mm),
     ]))
     
     elements.append(table)
