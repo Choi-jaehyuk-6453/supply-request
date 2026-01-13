@@ -63,13 +63,13 @@ def append_to_master(data, app_type, items):
                 bottom = item.get('bottom_size', '')
                 hat = item.get('hat_size', '')
                 spec = f"상의:{top}/하의:{bottom}/모자:{hat}"
-                quantity = 1
-                unit_price = 0
+                quantity = item.get('quantity', 1)
+                unit_price = item.get('unit_price', 0)
             else:
                 product_name = item.get('name', '')
                 spec = item.get('spec', '')
-                quantity = item.get('quantity', 0)
-                unit_price = 0
+                quantity = item.get('quantity', 1)
+                unit_price = item.get('unit_price', 0)
             
             total = quantity * unit_price
             

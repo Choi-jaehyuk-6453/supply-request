@@ -9,7 +9,9 @@ from excel_handler import append_to_master, get_master_data, get_monthly_summary
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
     add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name,
-    add_email_recipient, update_email_recipient, delete_email_recipient, get_email_recipients
+    add_email_recipient, update_email_recipient, delete_email_recipient, get_email_recipients,
+    get_supply_products, add_supply_product, update_supply_product, delete_supply_product, get_supply_product_by_name,
+    get_uniform_products, add_uniform_product, update_uniform_product, delete_uniform_product, get_uniform_product_by_name
 )
 from draft_manager import save_draft, get_draft, delete_draft, get_draft_list, update_draft
 
@@ -263,32 +265,59 @@ if menu == "신청서 작성":
     st.subheader("품목 입력")
     
     if app_type == "경비물품":
-        st.info("경비물품을 입력해주세요.")
+        st.info("경비물품을 입력해주세요. 등록된 품목을 선택하면 단가가 자동으로 입력됩니다.")
+        
+        supply_product_list = get_supply_products()
+        supply_options = ["직접 입력"] + [p['name'] for p in supply_product_list]
         
         if 'supplies_items' not in st.session_state:
             st.session_state.supplies_items = [
-                {'품목명': '', '규격': '', '수량': 1}
+                {'품목명': '', '규격': '', '수량': 1, '단가': 0, '금액': 0}
             ]
         
         col_add_sup, col_del_sup = st.columns([1, 5])
         with col_add_sup:
             if st.button("➕ 행 추가", use_container_width=True, key="add_supply"):
-                st.session_state.supplies_items.append({'품목명': '', '규격': '', '수량': 1})
+                st.session_state.supplies_items.append({'품목명': '', '규격': '', '수량': 1, '단가': 0, '금액': 0})
                 st.rerun()
         
+        st.markdown("**No | 품목 선택 | 규격 | 수량 | 단가 | 금액 | 삭제**")
+        
         supplies_to_delete = []
+        total_supply_amount = 0
         for idx, item in enumerate(st.session_state.supplies_items):
             with st.container():
-                cols = st.columns([0.5, 3, 2, 1, 0.5])
+                cols = st.columns([0.4, 2.5, 1.5, 0.8, 1.2, 1.2, 0.4])
                 with cols[0]:
                     st.write(f"**{idx+1}**")
                 with cols[1]:
-                    item['품목명'] = st.text_input('품목명', value=item.get('품목명', ''), key=f"sup_name_{idx}", label_visibility="collapsed", placeholder="품목명 입력")
+                    current_product = item.get('품목명', '')
+                    if current_product in supply_options:
+                        default_idx = supply_options.index(current_product)
+                    else:
+                        default_idx = 0
+                    selected = st.selectbox('품목', supply_options, index=default_idx, key=f"sup_select_{idx}", label_visibility="collapsed")
+                    
+                    if selected == "직접 입력":
+                        item['품목명'] = st.text_input('품목명', value=item.get('품목명', '') if item.get('품목명', '') not in supply_options else '', key=f"sup_name_{idx}", label_visibility="collapsed", placeholder="품목명 입력")
+                    else:
+                        item['품목명'] = selected
+                        product_info = get_supply_product_by_name(selected)
+                        if product_info:
+                            item['단가'] = product_info.get('unit_price', 0)
+                            if product_info.get('spec'):
+                                item['규격'] = product_info.get('spec', '')
                 with cols[2]:
                     item['규격'] = st.text_input('규격', value=item.get('규격', ''), key=f"sup_spec_{idx}", label_visibility="collapsed", placeholder="규격/옵션")
                 with cols[3]:
                     item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"sup_qty_{idx}", label_visibility="collapsed")
                 with cols[4]:
+                    item['단가'] = st.number_input('단가', value=item.get('단가', 0), min_value=0, step=100, key=f"sup_price_{idx}", label_visibility="collapsed")
+                with cols[5]:
+                    item['금액'] = item['수량'] * item['단가']
+                    st.write(f"{item['금액']:,}원")
+                    total_supply_amount += item['금액']
+                with cols[6]:
                     if st.button("🗑️", key=f"del_sup_{idx}"):
                         supplies_to_delete.append(idx)
         
@@ -297,12 +326,15 @@ if menu == "신청서 작성":
                 st.session_state.supplies_items.pop(idx)
             st.rerun()
         
-        st.markdown("**No | 품목명 | 규격 | 수량**", help="각 항목을 입력하세요")
+        st.markdown(f"**합계: {total_supply_amount:,}원**")
         
         edited_supplies = pd.DataFrame(st.session_state.supplies_items)
     
     else:
-        st.info("피복 신청 품목을 입력해주세요.")
+        st.info("피복 신청 품목을 입력해주세요. 등록된 품목을 선택하면 단가가 자동으로 입력됩니다.")
+        
+        uniform_product_list = get_uniform_products()
+        uniform_options = ["직접 입력"] + [p['name'] for p in uniform_product_list]
         
         top_sizes = ['이하', '90', '95', '100', '105', '110', '115', '120', '이상']
         bottom_sizes = ['이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
@@ -310,21 +342,24 @@ if menu == "신청서 작성":
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
-                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복', '수량': 1, '단가': 0, '금액': 0}
             ]
         
         col_add, col_del = st.columns([1, 5])
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
-                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복', '수량': 1, '단가': 0, '금액': 0}
                 )
                 st.rerun()
         
+        st.markdown("**No | 업종 | 직책 | 근무자 | 상의 | 하의 | 모자 | 품목 | 수량 | 단가 | 금액 | 삭제**")
+        
         items_to_delete = []
+        total_uniform_amount = 0
         for idx, item in enumerate(st.session_state.uniform_items):
             with st.container():
-                cols = st.columns([0.5, 1, 1, 1.5, 1, 1, 1, 2, 0.5])
+                cols = st.columns([0.35, 0.7, 0.7, 1.1, 0.6, 0.6, 0.5, 1.8, 0.6, 0.9, 0.9, 0.35])
                 with cols[0]:
                     st.write(f"**{idx+1}**")
                 with cols[1]:
@@ -332,7 +367,7 @@ if menu == "신청서 작성":
                 with cols[2]:
                     item['직책'] = st.text_input('직책', value=item.get('직책', '경비원'), key=f"pos_{idx}", label_visibility="collapsed")
                 with cols[3]:
-                    item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{idx}", label_visibility="collapsed", placeholder="이름 입력")
+                    item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{idx}", label_visibility="collapsed", placeholder="이름")
                 with cols[4]:
                     item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 3, key=f"top_{idx}", label_visibility="collapsed")
                 with cols[5]:
@@ -340,8 +375,29 @@ if menu == "신청서 작성":
                 with cols[6]:
                     item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 1, key=f"hat_{idx}", label_visibility="collapsed")
                 with cols[7]:
-                    item['품목'] = st.text_input('품목', value=item.get('품목', '회색동복'), key=f"prod_{idx}", label_visibility="collapsed", placeholder="품목 입력")
+                    current_uniform = item.get('품목', '')
+                    if current_uniform in uniform_options:
+                        default_uniform_idx = uniform_options.index(current_uniform)
+                    else:
+                        default_uniform_idx = 0
+                    selected_uniform = st.selectbox('품목', uniform_options, index=default_uniform_idx, key=f"unif_select_{idx}", label_visibility="collapsed")
+                    
+                    if selected_uniform == "직접 입력":
+                        item['품목'] = st.text_input('품목명', value=item.get('품목', '') if item.get('품목', '') not in uniform_options else '', key=f"prod_{idx}", label_visibility="collapsed", placeholder="품목 입력")
+                    else:
+                        item['품목'] = selected_uniform
+                        uniform_info = get_uniform_product_by_name(selected_uniform)
+                        if uniform_info:
+                            item['단가'] = uniform_info.get('unit_price', 0)
                 with cols[8]:
+                    item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"unif_qty_{idx}", label_visibility="collapsed")
+                with cols[9]:
+                    item['단가'] = st.number_input('단가', value=item.get('단가', 0), min_value=0, step=100, key=f"unif_price_{idx}", label_visibility="collapsed")
+                with cols[10]:
+                    item['금액'] = item['수량'] * item['단가']
+                    st.write(f"{item['금액']:,}원")
+                    total_uniform_amount += item['금액']
+                with cols[11]:
                     if st.button("🗑️", key=f"del_{idx}"):
                         items_to_delete.append(idx)
         
@@ -350,7 +406,7 @@ if menu == "신청서 작성":
                 st.session_state.uniform_items.pop(idx)
             st.rerun()
         
-        st.markdown("**업종 | 직책 | 근무자 | 상의 | 하의 | 모자 | 품목**", help="각 항목을 입력하세요")
+        st.markdown(f"**합계: {total_uniform_amount:,}원**")
         
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
@@ -385,18 +441,31 @@ if menu == "신청서 작성":
                 
                 if app_type == "경비물품":
                     items = []
+                    total_amount = 0
                     for _, row in edited_supplies.iterrows():
                         if row['품목명']:
+                            unit_price = int(row.get('단가', 0))
+                            quantity = int(row['수량'])
+                            amount = unit_price * quantity
+                            total_amount += amount
                             items.append({
                                 'name': row['품목명'],
                                 'spec': row.get('규격', ''),
-                                'quantity': int(row['수량'])
+                                'quantity': quantity,
+                                'unit_price': unit_price,
+                                'amount': amount
                             })
                     form_data['items'] = items
+                    form_data['total_amount'] = total_amount
                 else:
                     items = []
+                    total_amount = 0
                     for _, row in edited_uniform.iterrows():
                         if row['품목']:
+                            unit_price = int(row.get('단가', 0))
+                            quantity = int(row.get('수량', 1))
+                            amount = unit_price * quantity
+                            total_amount += amount
                             items.append({
                                 'job_type': row['업종'],
                                 'position': row['직책'],
@@ -404,9 +473,13 @@ if menu == "신청서 작성":
                                 'top_size': row['상의'],
                                 'bottom_size': row['하의'],
                                 'hat_size': row['모자'],
-                                'product': row['품목']
+                                'product': row['품목'],
+                                'quantity': quantity,
+                                'unit_price': unit_price,
+                                'amount': amount
                             })
                     form_data['items'] = items
+                    form_data['total_amount'] = total_amount
                 
                 try:
                     pdf_path = generate_pdf(form_data, app_type)
@@ -760,8 +833,12 @@ elif menu == "관리자 모드":
         st.session_state.edit_applicant_id = None
     if 'edit_email_id' not in st.session_state:
         st.session_state.edit_email_id = None
+    if 'edit_supply_product_id' not in st.session_state:
+        st.session_state.edit_supply_product_id = None
+    if 'edit_uniform_product_id' not in st.session_state:
+        st.session_state.edit_uniform_product_id = None
     
-    admin_tab = st.tabs(["현장 관리", "신청자 관리", "수신자 이메일 관리"])
+    admin_tab = st.tabs(["현장 관리", "신청자 관리", "수신자 이메일 관리", "경비용품 관리", "피복 품목 관리"])
     
     with admin_tab[0]:
         st.markdown("### 현장 정보 관리")
@@ -931,6 +1008,122 @@ elif menu == "관리자 모드":
                                 st.rerun()
         else:
             st.info("등록된 수신자가 없습니다.")
+    
+    with admin_tab[3]:
+        st.markdown("### 경비용품 품목 관리")
+        st.caption("경비물품 신청 시 사용할 품목과 단가를 등록합니다.")
+        
+        supply_products = get_supply_products()
+        
+        st.markdown("#### 새 경비용품 등록")
+        with st.form("add_supply_form", clear_on_submit=True):
+            col_sp1, col_sp2, col_sp3 = st.columns([2, 2, 1])
+            with col_sp1:
+                new_supply_name = st.text_input("품목명", placeholder="예: 경광봉")
+            with col_sp2:
+                new_supply_spec = st.text_input("규격/사양", placeholder="예: 적색/녹색")
+            with col_sp3:
+                new_supply_price = st.number_input("단가(원)", min_value=0, step=100, value=0)
+            
+            if st.form_submit_button("품목 등록", type="primary"):
+                if new_supply_name:
+                    add_supply_product(new_supply_name, new_supply_spec, new_supply_price)
+                    st.success(f"'{new_supply_name}' 품목이 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("품목명을 입력해주세요.")
+        
+        st.markdown("#### 등록된 경비용품 목록")
+        if supply_products:
+            for prod in supply_products:
+                with st.expander(f"📦 {prod['name']} - {prod.get('spec', '')} ({prod.get('unit_price', 0):,}원)"):
+                    if st.session_state.edit_supply_product_id == prod['id']:
+                        with st.form(f"edit_supply_form_{prod['id']}"):
+                            edit_sp_name = st.text_input("품목명", value=prod['name'])
+                            edit_sp_spec = st.text_input("규격/사양", value=prod.get('spec', ''))
+                            edit_sp_price = st.number_input("단가(원)", min_value=0, step=100, value=prod.get('unit_price', 0))
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("저장", type="primary"):
+                                    update_supply_product(prod['id'], edit_sp_name, edit_sp_spec, edit_sp_price)
+                                    st.session_state.edit_supply_product_id = None
+                                    st.success("수정되었습니다.")
+                                    st.rerun()
+                            with col_cancel:
+                                if st.form_submit_button("취소"):
+                                    st.session_state.edit_supply_product_id = None
+                                    st.rerun()
+                    else:
+                        st.text(f"규격: {prod.get('spec', '-')}")
+                        st.text(f"단가: {prod.get('unit_price', 0):,}원")
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("수정", key=f"edit_supply_{prod['id']}"):
+                                st.session_state.edit_supply_product_id = prod['id']
+                                st.rerun()
+                        with col_btn2:
+                            if st.button("삭제", key=f"del_supply_{prod['id']}", type="secondary"):
+                                delete_supply_product(prod['id'])
+                                st.success(f"'{prod['name']}' 품목이 삭제되었습니다.")
+                                st.rerun()
+        else:
+            st.info("등록된 경비용품이 없습니다.")
+    
+    with admin_tab[4]:
+        st.markdown("### 피복 품목 관리")
+        st.caption("피복 신청 시 사용할 품목과 단가를 등록합니다.")
+        
+        uniform_products = get_uniform_products()
+        
+        st.markdown("#### 새 피복 품목 등록")
+        with st.form("add_uniform_form", clear_on_submit=True):
+            col_up1, col_up2 = st.columns([2, 1])
+            with col_up1:
+                new_uniform_name = st.text_input("품목명", placeholder="예: 동복 상의")
+            with col_up2:
+                new_uniform_price = st.number_input("단가(원)", min_value=0, step=100, value=0)
+            
+            if st.form_submit_button("품목 등록", type="primary"):
+                if new_uniform_name:
+                    add_uniform_product(new_uniform_name, new_uniform_price)
+                    st.success(f"'{new_uniform_name}' 품목이 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("품목명을 입력해주세요.")
+        
+        st.markdown("#### 등록된 피복 품목 목록")
+        if uniform_products:
+            for prod in uniform_products:
+                with st.expander(f"👔 {prod['name']} ({prod.get('unit_price', 0):,}원)"):
+                    if st.session_state.edit_uniform_product_id == prod['id']:
+                        with st.form(f"edit_uniform_form_{prod['id']}"):
+                            edit_up_name = st.text_input("품목명", value=prod['name'])
+                            edit_up_price = st.number_input("단가(원)", min_value=0, step=100, value=prod.get('unit_price', 0))
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("저장", type="primary"):
+                                    update_uniform_product(prod['id'], edit_up_name, edit_up_price)
+                                    st.session_state.edit_uniform_product_id = None
+                                    st.success("수정되었습니다.")
+                                    st.rerun()
+                            with col_cancel:
+                                if st.form_submit_button("취소"):
+                                    st.session_state.edit_uniform_product_id = None
+                                    st.rerun()
+                    else:
+                        st.text(f"단가: {prod.get('unit_price', 0):,}원")
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("수정", key=f"edit_uniform_{prod['id']}"):
+                                st.session_state.edit_uniform_product_id = prod['id']
+                                st.rerun()
+                        with col_btn2:
+                            if st.button("삭제", key=f"del_uniform_{prod['id']}", type="secondary"):
+                                delete_uniform_product(prod['id'])
+                                st.success(f"'{prod['name']}' 품목이 삭제되었습니다.")
+                                st.rerun()
+        else:
+            st.info("등록된 피복 품목이 없습니다.")
 
 st.sidebar.divider()
 st.sidebar.caption("© 2026 건물관리 시스템")
