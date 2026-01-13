@@ -676,10 +676,11 @@ elif menu == "데이터 조회":
         
         if not filtered_df.empty:
             grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
-                '품목명': 'count',
+                '품목명': lambda x: ', '.join(x.astype(str).unique()),
                 '합계금액': 'sum'
             }).reset_index()
-            grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
+            grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목', '총액']
+            grouped['품목수'] = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).size().values
             
             col_metric1, col_metric2 = st.columns(2)
             with col_metric1:
@@ -689,26 +690,28 @@ elif menu == "데이터 조회":
                 st.metric("현장 수", f"{unique_sites}개")
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
-            header_cols = st.columns([1.5, 1, 1.5, 1.2, 0.8, 0.5])
+            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4])
             header_cols[0].markdown("**날짜**")
             header_cols[1].markdown("**구분**")
             header_cols[2].markdown("**현장명**")
             header_cols[3].markdown("**신청자**")
-            header_cols[4].markdown("**품목수**")
-            header_cols[5].markdown("**편집**")
+            header_cols[4].markdown("**품목**")
+            header_cols[5].markdown("**품목수**")
+            header_cols[6].markdown("**편집**")
             
             st.divider()
             
             for idx, row in grouped.iterrows():
-                row_cols = st.columns([1.5, 1, 1.5, 1.2, 0.8, 0.5])
+                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4])
                 row_cols[0].write(row['날짜_str'])
                 row_cols[1].write(row['구분'])
                 row_cols[2].write(row['현장명'])
                 row_cols[3].write(row['신청자'])
-                row_cols[4].write(f"{row['품목수']}개")
+                row_cols[4].write(row['품목'])
+                row_cols[5].write(f"{row['품목수']}개")
                 
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
-                if row_cols[5].button("✏️", key=btn_key):
+                if row_cols[6].button("✏️", key=btn_key):
                     display_df_temp = filtered_df.copy()
                     display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
                     
