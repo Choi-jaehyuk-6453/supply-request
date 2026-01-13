@@ -154,14 +154,15 @@ if menu == "신청서 작성":
             num_rows="dynamic",
             use_container_width=True,
             column_config={
-                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True),
-                '직책': st.column_config.TextColumn('직책', default='경비원'),
-                '근무자': st.column_config.TextColumn('근무자', default=''),
-                '상의': st.column_config.TextColumn('상의 사이즈', default=''),
-                '하의': st.column_config.TextColumn('하의 사이즈', default=''),
-                '모자': st.column_config.TextColumn('모자 사이즈', default=''),
-                '품목': st.column_config.TextColumn('품목', default='', required=True)
+                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True, width="small"),
+                '직책': st.column_config.TextColumn('직책', default='경비원', width="small"),
+                '근무자': st.column_config.TextColumn('근무자', default='', width="small"),
+                '상의': st.column_config.TextColumn('상의', default='', width="small"),
+                '하의': st.column_config.TextColumn('하의', default='', width="small"),
+                '모자': st.column_config.TextColumn('모자', default='', width="small"),
+                '품목': st.column_config.TextColumn('품목 (직접 입력)', default='', width="large")
             },
+            column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목'],
             key="uniform_editor"
         )
         
