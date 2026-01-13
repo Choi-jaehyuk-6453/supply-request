@@ -340,7 +340,7 @@ if menu == "신청서 작성":
     
     st.divider()
     
-    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([1, 1, 1, 1])
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     
     with col_btn1:
         if st.button("신청서 생성 (PDF)", type="primary", use_container_width=True):
@@ -391,29 +391,20 @@ if menu == "신청서 작성":
                     st.session_state.pdf_path = pdf_path
                     st.session_state.form_data = form_data
                     st.session_state.items = items
-                    st.success(f"PDF가 생성되었습니다: {os.path.basename(pdf_path)}")
+                    
+                    success, message = append_to_master(form_data, app_type, items)
+                    if success:
+                        st.success(f"PDF가 생성되고 데이터가 저장되었습니다: {os.path.basename(pdf_path)}")
+                        if st.session_state.loaded_draft_id:
+                            delete_draft(st.session_state.loaded_draft_id)
+                            st.session_state.loaded_draft_id = None
+                            st.session_state.draft_metadata = None
+                    else:
+                        st.warning(f"PDF 생성됨. 데이터 저장 오류: {message}")
                 except Exception as e:
                     st.error(f"PDF 생성 중 오류가 발생했습니다: {str(e)}")
     
     with col_btn2:
-        if st.button("데이터 저장 (엑셀)", use_container_width=True):
-            if st.session_state.form_data and st.session_state.get('items'):
-                success, message = append_to_master(
-                    st.session_state.form_data,
-                    app_type,
-                    st.session_state.items
-                )
-                if success:
-                    st.success(message)
-                    if st.session_state.loaded_draft_id:
-                        delete_draft(st.session_state.loaded_draft_id)
-                        st.session_state.loaded_draft_id = None
-                else:
-                    st.error(message)
-            else:
-                st.warning("먼저 신청서를 생성해주세요.")
-    
-    with col_btn3:
         if st.button("💾 임시저장", use_container_width=True):
             if app_type == "경비물품":
                 items_to_save = st.session_state.supplies_items
@@ -441,7 +432,7 @@ if menu == "신청서 작성":
                 st.session_state.loaded_draft_id = draft_id
                 st.success("임시저장되었습니다.")
     
-    with col_btn4:
+    with col_btn3:
         if st.button("🔄 새로 작성", use_container_width=True):
             st.session_state.loaded_draft_id = None
             st.session_state.pdf_generated = False
