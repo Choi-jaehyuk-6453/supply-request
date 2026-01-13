@@ -607,8 +607,96 @@ elif menu == "데이터 조회":
             
             display_df = filtered_df.copy()
             display_df['날짜'] = display_df['날짜'].dt.strftime('%Y-%m-%d')
+            display_df = display_df.reset_index(drop=True)
             
-            st.dataframe(display_df, use_container_width=True, height=400)
+            st.info("💡 행을 클릭하면 해당 신청서를 수정할 수 있습니다.")
+            
+            selection = st.dataframe(
+                display_df, 
+                use_container_width=True, 
+                height=400,
+                selection_mode="single-row",
+                on_select="rerun"
+            )
+            
+            if selection and selection.selection and selection.selection.rows:
+                selected_idx = selection.selection.rows[0]
+                selected_row = display_df.iloc[selected_idx]
+                
+                app_items = display_df[
+                    (display_df['날짜'] == selected_row['날짜']) & 
+                    (display_df['현장명'] == selected_row['현장명']) & 
+                    (display_df['신청자'] == selected_row['신청자']) &
+                    (display_df['구분'] == selected_row['구분'])
+                ]
+                
+                draft_data = {
+                    'company': selected_row['법인명'],
+                    'app_type': selected_row['구분'],
+                    'application_date': selected_row['날짜'],
+                    'site_name': selected_row['현장명'],
+                    'applicant': selected_row['신청자'],
+                    'applicant_contact': '',
+                    'address': '',
+                    'contact': '',
+                    'remarks': '',
+                    'items': []
+                }
+                
+                if selected_row['구분'] == '경비물품':
+                    for _, item_row in app_items.iterrows():
+                        draft_data['items'].append({
+                            '품목명': item_row['품목명'],
+                            '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
+                            '수량': int(item_row['수량'])
+                        })
+                    st.session_state.supplies_items = draft_data['items']
+                else:
+                    for _, item_row in app_items.iterrows():
+                        spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
+                        top_size = '100'
+                        bottom_size = '32'
+                        hat_size = '중'
+                        
+                        if '상의:' in spec:
+                            try:
+                                parts = spec.split('/')
+                                for part in parts:
+                                    if part.startswith('상의:'):
+                                        top_size = part.replace('상의:', '')
+                                    elif part.startswith('하의:'):
+                                        bottom_size = part.replace('하의:', '')
+                                    elif part.startswith('모자:'):
+                                        hat_size = part.replace('모자:', '')
+                            except:
+                                pass
+                        
+                        draft_data['items'].append({
+                            '업종': '경비직',
+                            '직책': '경비원',
+                            '근무자': '',
+                            '상의': top_size,
+                            '하의': bottom_size,
+                            '모자': hat_size,
+                            '품목': item_row['품목명']
+                        })
+                    st.session_state.uniform_items = draft_data['items']
+                
+                st.session_state.draft_metadata = {
+                    'site_name': selected_row['현장명'],
+                    'applicant': selected_row['신청자'],
+                    'applicant_contact': '',
+                    'address': '',
+                    'contact': '',
+                    'remarks': '',
+                    'application_date': selected_row['날짜']
+                }
+                
+                st.session_state.loaded_draft_id = None
+                st.session_state.selected_menu = "신청서 작성"
+                st.session_state.selected_company = selected_row['법인명']
+                st.session_state.selected_app_type = selected_row['구분']
+                st.rerun()
             
             csv = display_df.to_csv(index=False).encode('utf-8-sig')
             st.download_button(
@@ -617,97 +705,6 @@ elif menu == "데이터 조회":
                 file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv"
             )
-            
-            st.divider()
-            st.markdown("### 신청서별 조회 (편집 가능)")
-            
-            grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
-                '품목명': 'count',
-                '합계금액': 'sum'
-            }).reset_index()
-            grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
-            grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
-            
-            for idx, row in grouped.iterrows():
-                col_info, col_btn = st.columns([5, 1])
-                with col_info:
-                    st.write(f"📄 **{row['날짜_str']}** - {row['현장명']} ({row['구분']}) - {row['품목수']}개 품목, ₩{row['총액']:,.0f}")
-                with col_btn:
-                    if st.button("선택", key=f"select_app_{idx}", use_container_width=True):
-                        app_items = filtered_df[
-                            (filtered_df['날짜'] == row['날짜']) & 
-                            (filtered_df['현장명'] == row['현장명']) & 
-                            (filtered_df['신청자'] == row['신청자']) &
-                            (filtered_df['구분'] == row['구분'])
-                        ]
-                        
-                        draft_data = {
-                            'company': row['법인명'],
-                            'app_type': row['구분'],
-                            'application_date': row['날짜_str'],
-                            'site_name': row['현장명'],
-                            'applicant': row['신청자'],
-                            'applicant_contact': '',
-                            'address': '',
-                            'contact': '',
-                            'remarks': '',
-                            'items': []
-                        }
-                        
-                        if row['구분'] == '경비물품':
-                            for _, item_row in app_items.iterrows():
-                                draft_data['items'].append({
-                                    '품목명': item_row['품목명'],
-                                    '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
-                                    '수량': int(item_row['수량'])
-                                })
-                            st.session_state.supplies_items = draft_data['items']
-                        else:
-                            for _, item_row in app_items.iterrows():
-                                spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
-                                top_size = '100'
-                                bottom_size = '32'
-                                hat_size = '중'
-                                
-                                if '상의:' in spec:
-                                    try:
-                                        parts = spec.split('/')
-                                        for part in parts:
-                                            if part.startswith('상의:'):
-                                                top_size = part.replace('상의:', '')
-                                            elif part.startswith('하의:'):
-                                                bottom_size = part.replace('하의:', '')
-                                            elif part.startswith('모자:'):
-                                                hat_size = part.replace('모자:', '')
-                                    except:
-                                        pass
-                                
-                                draft_data['items'].append({
-                                    '업종': '경비직',
-                                    '직책': '경비원',
-                                    '근무자': '',
-                                    '상의': top_size,
-                                    '하의': bottom_size,
-                                    '모자': hat_size,
-                                    '품목': item_row['품목명']
-                                })
-                            st.session_state.uniform_items = draft_data['items']
-                        
-                        st.session_state.draft_metadata = {
-                            'site_name': row['현장명'],
-                            'applicant': row['신청자'],
-                            'applicant_contact': '',
-                            'address': '',
-                            'contact': '',
-                            'remarks': '',
-                            'application_date': row['날짜_str']
-                        }
-                        
-                        st.session_state.loaded_draft_id = None
-                        st.session_state.selected_menu = "신청서 작성"
-                        st.session_state.selected_company = row['법인명']
-                        st.session_state.selected_app_type = row['구분']
-                        st.rerun()
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
