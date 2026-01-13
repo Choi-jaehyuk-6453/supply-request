@@ -605,71 +605,58 @@ elif menu == "데이터 조회":
                 unique_sites = filtered_df['현장명'].nunique()
                 st.metric("현장 수", f"{unique_sites}개")
             
-            display_df = filtered_df.copy()
-            display_df['날짜'] = display_df['날짜'].dt.strftime('%Y-%m-%d')
-            display_df = display_df.reset_index(drop=True)
-            
-            st.dataframe(display_df, use_container_width=True, height=300)
-            
-            csv = display_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 엑셀 다운로드 (CSV)",
-                data=csv,
-                file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv"
-            )
-            
-            st.divider()
-            st.markdown("### 신청서 수정")
-            
             grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
                 '품목명': 'count',
                 '합계금액': 'sum'
             }).reset_index()
             grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
-            grouped['표시'] = grouped.apply(lambda r: f"{r['날짜_str']} - {r['현장명']} ({r['구분']}) - {r['품목수']}개 품목", axis=1)
             
-            options = ["선택하세요"] + grouped['표시'].tolist()
-            selected_app = st.selectbox("수정할 신청서 선택", options=options, key="edit_app_select")
+            header_cols = st.columns([1.2, 0.8, 1.2, 1, 0.8, 0.6, 1, 0.6])
+            header_cols[0].markdown("**날짜**")
+            header_cols[1].markdown("**구분**")
+            header_cols[2].markdown("**현장명**")
+            header_cols[3].markdown("**신청자**")
+            header_cols[4].markdown("**품목수**")
+            header_cols[5].markdown("**총액**")
+            header_cols[6].markdown("**법인**")
+            header_cols[7].markdown("**편집**")
             
-            if selected_app != "선택하세요":
-                selected_idx = options.index(selected_app) - 1
-                row = grouped.iloc[selected_idx]
+            st.divider()
+            
+            for idx, row in grouped.iterrows():
+                row_cols = st.columns([1.2, 0.8, 1.2, 1, 0.8, 0.6, 1, 0.6])
+                row_cols[0].write(row['날짜_str'])
+                row_cols[1].write(row['구분'])
+                row_cols[2].write(row['현장명'])
+                row_cols[3].write(row['신청자'])
+                row_cols[4].write(f"{row['품목수']}개")
+                row_cols[5].write(f"₩{row['총액']:,.0f}")
+                row_cols[6].write(row['법인명'])
                 
-                app_items = display_df[
-                    (display_df['날짜'] == row['날짜_str']) & 
-                    (display_df['현장명'] == row['현장명']) & 
-                    (display_df['신청자'] == row['신청자']) &
-                    (display_df['구분'] == row['구분'])
-                ]
-                
-                st.write(f"**법인:** {row['법인명']} | **현장:** {row['현장명']} | **신청자:** {row['신청자']}")
-                st.dataframe(app_items[['품목명', '규격', '수량']], use_container_width=True, hide_index=True)
-                
-                if st.button("✏️ 이 신청서 편집하기", type="primary", use_container_width=True):
-                    draft_data = {
-                        'company': row['법인명'],
-                        'app_type': row['구분'],
-                        'application_date': row['날짜_str'],
-                        'site_name': row['현장명'],
-                        'applicant': row['신청자'],
-                        'applicant_contact': '',
-                        'address': '',
-                        'contact': '',
-                        'remarks': '',
-                        'items': []
-                    }
+                btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
+                if row_cols[7].button("✏️", key=btn_key):
+                    display_df_temp = filtered_df.copy()
+                    display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
+                    
+                    app_items = display_df_temp[
+                        (display_df_temp['날짜_str'] == row['날짜_str']) & 
+                        (display_df_temp['현장명'] == row['현장명']) & 
+                        (display_df_temp['신청자'] == row['신청자']) &
+                        (display_df_temp['구분'] == row['구분'])
+                    ]
                     
                     if row['구분'] == '경비물품':
+                        items_list = []
                         for _, item_row in app_items.iterrows():
-                            draft_data['items'].append({
+                            items_list.append({
                                 '품목명': item_row['품목명'],
                                 '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
                                 '수량': int(item_row['수량'])
                             })
-                        st.session_state.supplies_items = draft_data['items']
+                        st.session_state.supplies_items = items_list
                     else:
+                        items_list = []
                         for _, item_row in app_items.iterrows():
                             spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
                             top_size = '100'
@@ -689,7 +676,7 @@ elif menu == "데이터 조회":
                                 except:
                                     pass
                             
-                            draft_data['items'].append({
+                            items_list.append({
                                 '업종': '경비직',
                                 '직책': '경비원',
                                 '근무자': '',
@@ -698,7 +685,7 @@ elif menu == "데이터 조회":
                                 '모자': hat_size,
                                 '품목': item_row['품목명']
                             })
-                        st.session_state.uniform_items = draft_data['items']
+                        st.session_state.uniform_items = items_list
                     
                     st.session_state.draft_metadata = {
                         'site_name': row['현장명'],
@@ -715,6 +702,16 @@ elif menu == "데이터 조회":
                     st.session_state.selected_company = row['법인명']
                     st.session_state.selected_app_type = row['구분']
                     st.rerun()
+            
+            st.divider()
+            
+            csv = filtered_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 엑셀 다운로드 (CSV)",
+                data=csv,
+                file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
