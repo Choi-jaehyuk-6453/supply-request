@@ -76,6 +76,9 @@ if menu == "신청서 작성":
     site_names = ["직접 입력"] + [s["name"] for s in sites]
     applicant_names = ["직접 입력"] + [a["name"] for a in applicants_list]
     
+    site_info = None
+    applicant_info = None
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -120,8 +123,8 @@ if menu == "신청서 작성":
             applicant_info = get_applicant_by_name(selected_applicant)
     
     with col2:
-        if selected_applicant != "직접 입력" and 'applicant_info' in dir():
-            default_applicant_contact = applicant_info.get("contact", "") if applicant_info else ""
+        if applicant_info:
+            default_applicant_contact = applicant_info.get("contact", "")
         else:
             default_applicant_contact = ""
         
@@ -131,9 +134,9 @@ if menu == "신청서 작성":
             placeholder="예: 010-5089-3105"
         )
         
-        if selected_site != "직접 입력" and 'site_info' in dir():
-            default_address = site_info.get("address", "") if site_info else ""
-            default_contact = site_info.get("contact", "") if site_info else ""
+        if site_info:
+            default_address = site_info.get("address", "")
+            default_contact = site_info.get("contact", "")
         else:
             default_address = ""
             default_contact = ""
