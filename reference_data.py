@@ -10,6 +10,8 @@ def get_default_data():
         "sites": [],
         "applicants": [],
         "email_recipients": [],
+        "supply_products": [],
+        "uniform_products": [],
         "last_updated": None
     }
 
@@ -25,6 +27,10 @@ def load_data():
                 data["applicants"] = []
             if "email_recipients" not in data:
                 data["email_recipients"] = []
+            if "supply_products" not in data:
+                data["supply_products"] = []
+            if "uniform_products" not in data:
+                data["uniform_products"] = []
             return data
     except (json.JSONDecodeError, Exception):
         return get_default_data()
@@ -165,3 +171,85 @@ def delete_email_recipient(recipient_id):
 def get_email_recipients():
     data = load_data()
     return data.get("email_recipients", [])
+
+
+def add_supply_product(name, spec, unit_price):
+    data = load_data()
+    product = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "spec": spec,
+        "unit_price": int(unit_price),
+        "created_at": datetime.now().isoformat()
+    }
+    data["supply_products"].append(product)
+    save_data(data)
+    return product
+
+def update_supply_product(product_id, name, spec, unit_price):
+    data = load_data()
+    for product in data["supply_products"]:
+        if product["id"] == product_id:
+            product["name"] = name
+            product["spec"] = spec
+            product["unit_price"] = int(unit_price)
+            product["updated_at"] = datetime.now().isoformat()
+            save_data(data)
+            return product
+    return None
+
+def delete_supply_product(product_id):
+    data = load_data()
+    data["supply_products"] = [p for p in data["supply_products"] if p["id"] != product_id]
+    save_data(data)
+
+def get_supply_products():
+    data = load_data()
+    return data.get("supply_products", [])
+
+def get_supply_product_by_name(name):
+    products = get_supply_products()
+    for product in products:
+        if product["name"] == name:
+            return product
+    return None
+
+
+def add_uniform_product(name, unit_price):
+    data = load_data()
+    product = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "unit_price": int(unit_price),
+        "created_at": datetime.now().isoformat()
+    }
+    data["uniform_products"].append(product)
+    save_data(data)
+    return product
+
+def update_uniform_product(product_id, name, unit_price):
+    data = load_data()
+    for product in data["uniform_products"]:
+        if product["id"] == product_id:
+            product["name"] = name
+            product["unit_price"] = int(unit_price)
+            product["updated_at"] = datetime.now().isoformat()
+            save_data(data)
+            return product
+    return None
+
+def delete_uniform_product(product_id):
+    data = load_data()
+    data["uniform_products"] = [p for p in data["uniform_products"] if p["id"] != product_id]
+    save_data(data)
+
+def get_uniform_products():
+    data = load_data()
+    return data.get("uniform_products", [])
+
+def get_uniform_product_by_name(name):
+    products = get_uniform_products()
+    for product in products:
+        if product["name"] == name:
+            return product
+    return None
