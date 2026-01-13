@@ -29,5 +29,13 @@
       "created_at": "2026-01-13T06:48:17.427232"
     }
   ],
-  "last_updated": "2026-01-13T06:49:23.606281"
+  "last_updated": "2026-01-13T07:02:14.756620",
+  "email_recipients": [
+    {
+      "id": "a2ebe778-a483-40aa-bdf3-5dbd19b95bc8",
+      "company_name": "최재혁",
+      "email": "choijh6453@naver.com",
+      "created_at": "2026-01-13T07:02:14.756608"
+    }
+  ]
 }
