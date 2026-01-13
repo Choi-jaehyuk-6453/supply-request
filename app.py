@@ -138,16 +138,21 @@ if menu == "신청서 작성":
     else:
         st.info("피복 신청 품목을 입력해주세요. 행 추가는 표 하단의 + 버튼을 클릭하세요.")
         
+        default_uniform = pd.DataFrame({
+            '업종': ['경비직'],
+            '직책': ['경비원'],
+            '근무자': [''],
+            '상의': ['100'],
+            '하의': ['100'],
+            '모자': [''],
+            '품목': ['회색동복']
+        })
+        
         if 'uniform_items' not in st.session_state:
-            st.session_state.uniform_items = pd.DataFrame({
-                '업종': ['경비직'],
-                '직책': ['경비원'],
-                '근무자': [''],
-                '상의': ['100'],
-                '하의': ['100'],
-                '모자': [''],
-                '품목': ['회색동복']
-            })
+            st.session_state.uniform_items = default_uniform.copy()
+        
+        def on_uniform_change():
+            st.session_state.uniform_items = st.session_state.uniform_editor_data
         
         edited_uniform = st.data_editor(
             st.session_state.uniform_items,
@@ -156,14 +161,15 @@ if menu == "신청서 작성":
             column_config={
                 '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True, width="small"),
                 '직책': st.column_config.TextColumn('직책', default='경비원', width="small"),
-                '근무자': st.column_config.TextColumn('근무자', default='', width="small"),
-                '상의': st.column_config.TextColumn('상의', default='', width="small"),
-                '하의': st.column_config.TextColumn('하의', default='', width="small"),
-                '모자': st.column_config.TextColumn('모자', default='', width="small"),
-                '품목': st.column_config.TextColumn('품목 (직접 입력)', default='', width="large")
+                '근무자': st.column_config.TextColumn('근무자', width="medium"),
+                '상의': st.column_config.TextColumn('상의', default='100', width="small"),
+                '하의': st.column_config.TextColumn('하의', default='100', width="small"),
+                '모자': st.column_config.TextColumn('모자', width="small"),
+                '품목': st.column_config.TextColumn('품목 (직접 입력)', width="large")
             },
             column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목'],
-            key="uniform_editor"
+            key="uniform_editor_data",
+            on_change=on_uniform_change
         )
         
         st.session_state.uniform_items = edited_uniform
