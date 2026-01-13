@@ -61,31 +61,32 @@ app_type_options = ["경비물품", "피복"]
 with st.sidebar:
     st.header("설정")
     
+    if 'company_select' not in st.session_state:
+        st.session_state.company_select = st.session_state.selected_company
+    if 'app_type_select' not in st.session_state:
+        st.session_state.app_type_select = st.session_state.selected_app_type
+    if 'menu_radio' not in st.session_state:
+        st.session_state.menu_radio = st.session_state.selected_menu
+    
     company = st.selectbox(
         "법인명",
         options=company_options,
-        index=company_options.index(st.session_state.selected_company),
         key="company_select"
     )
-    st.session_state.selected_company = company
     
     app_type = st.selectbox(
         "신청 유형",
         options=app_type_options,
-        index=app_type_options.index(st.session_state.selected_app_type),
         key="app_type_select"
     )
-    st.session_state.selected_app_type = app_type
     
     st.divider()
     
     menu = st.radio(
         "메뉴",
         options=menu_options,
-        index=menu_options.index(st.session_state.selected_menu),
         key="menu_radio"
     )
-    st.session_state.selected_menu = menu
 
 st.markdown('<p class="main-header">경비용품 및 피복 신청 관리 시스템</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">현재 선택: {company} ABM / {app_type} 신청</p>', unsafe_allow_html=True)
@@ -612,30 +613,26 @@ elif menu == "데이터 조회":
             grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
-            header_cols = st.columns([1.2, 0.8, 1.2, 1, 0.8, 0.6, 1, 0.6])
+            header_cols = st.columns([1.5, 1, 1.5, 1.2, 0.8, 0.5])
             header_cols[0].markdown("**날짜**")
             header_cols[1].markdown("**구분**")
             header_cols[2].markdown("**현장명**")
             header_cols[3].markdown("**신청자**")
             header_cols[4].markdown("**품목수**")
-            header_cols[5].markdown("**총액**")
-            header_cols[6].markdown("**법인**")
-            header_cols[7].markdown("**편집**")
+            header_cols[5].markdown("**편집**")
             
             st.divider()
             
             for idx, row in grouped.iterrows():
-                row_cols = st.columns([1.2, 0.8, 1.2, 1, 0.8, 0.6, 1, 0.6])
+                row_cols = st.columns([1.5, 1, 1.5, 1.2, 0.8, 0.5])
                 row_cols[0].write(row['날짜_str'])
                 row_cols[1].write(row['구분'])
                 row_cols[2].write(row['현장명'])
                 row_cols[3].write(row['신청자'])
                 row_cols[4].write(f"{row['품목수']}개")
-                row_cols[5].write(f"₩{row['총액']:,.0f}")
-                row_cols[6].write(row['법인명'])
                 
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
-                if row_cols[7].button("✏️", key=btn_key):
+                if row_cols[5].button("✏️", key=btn_key):
                     display_df_temp = filtered_df.copy()
                     display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
                     
@@ -698,9 +695,9 @@ elif menu == "데이터 조회":
                     }
                     
                     st.session_state.loaded_draft_id = None
-                    st.session_state.selected_menu = "신청서 작성"
-                    st.session_state.selected_company = row['법인명']
-                    st.session_state.selected_app_type = row['구분']
+                    st.session_state.menu_radio = "신청서 작성"
+                    st.session_state.company_select = row['법인명']
+                    st.session_state.app_type_select = row['구분']
                     st.rerun()
             
             st.divider()
