@@ -8,7 +8,8 @@ from email_sender import send_application_email, get_default_email
 from excel_handler import append_to_master, get_master_data, get_monthly_summary, initialize_excel
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
-    add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name
+    add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name,
+    add_email_recipient, update_email_recipient, delete_email_recipient, get_email_recipients
 )
 
 st.set_page_config(
@@ -355,14 +356,37 @@ if menu == "신청서 작성":
             if not smtp_email or not smtp_password:
                 st.warning("SMTP 설정이 필요합니다. Secrets에 SMTP_EMAIL과 SMTP_PASSWORD를 설정해주세요.")
             
+            email_recipients = get_email_recipients()
             default_email = get_default_email(app_type)
             
-            to_email = st.text_input(
-                "수신자 이메일",
-                value=default_email,
-                placeholder="수신자 이메일을 입력하세요",
-                help=f"기본값: {default_email}"
-            )
+            if email_recipients:
+                recipient_options = ["직접 입력"] + [f"{r['company_name']} ({r['email']})" for r in email_recipients]
+                selected_recipient = st.selectbox(
+                    "수신자 선택",
+                    options=recipient_options,
+                    index=0,
+                    help="등록된 수신자를 선택하거나 '직접 입력'을 선택하세요"
+                )
+                
+                if selected_recipient == "직접 입력":
+                    to_email = st.text_input(
+                        "수신자 이메일",
+                        value=default_email,
+                        placeholder="수신자 이메일을 입력하세요"
+                    )
+                else:
+                    for r in email_recipients:
+                        if f"{r['company_name']} ({r['email']})" == selected_recipient:
+                            to_email = r['email']
+                            st.text(f"이메일: {to_email}")
+                            break
+            else:
+                to_email = st.text_input(
+                    "수신자 이메일",
+                    value=default_email,
+                    placeholder="수신자 이메일을 입력하세요",
+                    help=f"기본값: {default_email}"
+                )
             
             if st.button("이메일 전송", type="secondary"):
                 if not smtp_email or not smtp_password:
@@ -450,7 +474,14 @@ elif menu == "관리자 모드":
     st.subheader("관리자 모드")
     st.info("현장 정보와 신청자 정보를 등록하면 신청서 작성 시 자동으로 불러올 수 있습니다.")
     
-    admin_tab = st.tabs(["현장 관리", "신청자 관리"])
+    if 'edit_site_id' not in st.session_state:
+        st.session_state.edit_site_id = None
+    if 'edit_applicant_id' not in st.session_state:
+        st.session_state.edit_applicant_id = None
+    if 'edit_email_id' not in st.session_state:
+        st.session_state.edit_email_id = None
+    
+    admin_tab = st.tabs(["현장 관리", "신청자 관리", "수신자 이메일 관리"])
     
     with admin_tab[0]:
         st.markdown("### 현장 정보 관리")
@@ -478,16 +509,35 @@ elif menu == "관리자 모드":
         if sites:
             for site in sites:
                 with st.expander(f"📍 {site['name']}"):
-                    col_e1, col_e2, col_e3 = st.columns([2, 2, 1])
-                    with col_e1:
+                    if st.session_state.edit_site_id == site['id']:
+                        with st.form(f"edit_site_form_{site['id']}"):
+                            edit_name = st.text_input("현장명", value=site['name'])
+                            edit_address = st.text_input("배송지 주소", value=site.get('address', ''))
+                            edit_contact = st.text_input("현장 연락처", value=site.get('contact', ''))
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("저장", type="primary"):
+                                    update_site(site['id'], edit_name, edit_address, edit_contact)
+                                    st.session_state.edit_site_id = None
+                                    st.success("수정되었습니다.")
+                                    st.rerun()
+                            with col_cancel:
+                                if st.form_submit_button("취소"):
+                                    st.session_state.edit_site_id = None
+                                    st.rerun()
+                    else:
                         st.text(f"주소: {site.get('address', '-')}")
-                    with col_e2:
                         st.text(f"연락처: {site.get('contact', '-')}")
-                    with col_e3:
-                        if st.button("삭제", key=f"del_site_{site['id']}", type="secondary"):
-                            delete_site(site['id'])
-                            st.success(f"'{site['name']}' 현장이 삭제되었습니다.")
-                            st.rerun()
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("수정", key=f"edit_site_{site['id']}"):
+                                st.session_state.edit_site_id = site['id']
+                                st.rerun()
+                        with col_btn2:
+                            if st.button("삭제", key=f"del_site_{site['id']}", type="secondary"):
+                                delete_site(site['id'])
+                                st.success(f"'{site['name']}' 현장이 삭제되었습니다.")
+                                st.rerun()
         else:
             st.info("등록된 현장이 없습니다.")
     
@@ -516,16 +566,91 @@ elif menu == "관리자 모드":
         if applicants_list:
             for app in applicants_list:
                 with st.expander(f"👤 {app['name']}"):
-                    col_ap1, col_ap2 = st.columns([3, 1])
-                    with col_ap1:
+                    if st.session_state.edit_applicant_id == app['id']:
+                        with st.form(f"edit_app_form_{app['id']}"):
+                            edit_app_name = st.text_input("신청자명", value=app['name'])
+                            edit_app_contact = st.text_input("연락처", value=app.get('contact', ''))
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("저장", type="primary"):
+                                    update_applicant(app['id'], edit_app_name, edit_app_contact)
+                                    st.session_state.edit_applicant_id = None
+                                    st.success("수정되었습니다.")
+                                    st.rerun()
+                            with col_cancel:
+                                if st.form_submit_button("취소"):
+                                    st.session_state.edit_applicant_id = None
+                                    st.rerun()
+                    else:
                         st.text(f"연락처: {app.get('contact', '-')}")
-                    with col_ap2:
-                        if st.button("삭제", key=f"del_app_{app['id']}", type="secondary"):
-                            delete_applicant(app['id'])
-                            st.success(f"'{app['name']}' 신청자가 삭제되었습니다.")
-                            st.rerun()
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("수정", key=f"edit_app_{app['id']}"):
+                                st.session_state.edit_applicant_id = app['id']
+                                st.rerun()
+                        with col_btn2:
+                            if st.button("삭제", key=f"del_app_{app['id']}", type="secondary"):
+                                delete_applicant(app['id'])
+                                st.success(f"'{app['name']}' 신청자가 삭제되었습니다.")
+                                st.rerun()
         else:
             st.info("등록된 신청자가 없습니다.")
+    
+    with admin_tab[2]:
+        st.markdown("### 수신자 이메일 관리")
+        st.caption("신청서 이메일 발송 시 사용할 수신자 목록입니다.")
+        
+        email_recipients = get_email_recipients()
+        
+        st.markdown("#### 새 수신자 등록")
+        with st.form("add_email_form", clear_on_submit=True):
+            col_e1, col_e2 = st.columns(2)
+            with col_e1:
+                new_company_name = st.text_input("업체명", placeholder="예: 경원피복, 제이누리")
+            with col_e2:
+                new_email = st.text_input("이메일", placeholder="예: example@email.com")
+            
+            if st.form_submit_button("수신자 등록", type="primary"):
+                if new_company_name and new_email:
+                    add_email_recipient(new_company_name, new_email)
+                    st.success(f"'{new_company_name}' 수신자가 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("업체명과 이메일을 모두 입력해주세요.")
+        
+        st.markdown("#### 등록된 수신자 목록")
+        if email_recipients:
+            for recipient in email_recipients:
+                with st.expander(f"📧 {recipient['company_name']}"):
+                    if st.session_state.edit_email_id == recipient['id']:
+                        with st.form(f"edit_email_form_{recipient['id']}"):
+                            edit_company = st.text_input("업체명", value=recipient['company_name'])
+                            edit_email = st.text_input("이메일", value=recipient.get('email', ''))
+                            col_save, col_cancel = st.columns(2)
+                            with col_save:
+                                if st.form_submit_button("저장", type="primary"):
+                                    update_email_recipient(recipient['id'], edit_company, edit_email)
+                                    st.session_state.edit_email_id = None
+                                    st.success("수정되었습니다.")
+                                    st.rerun()
+                            with col_cancel:
+                                if st.form_submit_button("취소"):
+                                    st.session_state.edit_email_id = None
+                                    st.rerun()
+                    else:
+                        st.text(f"이메일: {recipient.get('email', '-')}")
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("수정", key=f"edit_email_{recipient['id']}"):
+                                st.session_state.edit_email_id = recipient['id']
+                                st.rerun()
+                        with col_btn2:
+                            if st.button("삭제", key=f"del_email_{recipient['id']}", type="secondary"):
+                                delete_email_recipient(recipient['id'])
+                                st.success(f"'{recipient['company_name']}' 수신자가 삭제되었습니다.")
+                                st.rerun()
+        else:
+            st.info("등록된 수신자가 없습니다.")
 
 st.sidebar.divider()
 st.sidebar.caption("© 2026 건물관리 시스템")

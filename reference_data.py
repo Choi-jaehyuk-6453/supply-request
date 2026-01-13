@@ -9,6 +9,7 @@ def get_default_data():
     return {
         "sites": [],
         "applicants": [],
+        "email_recipients": [],
         "last_updated": None
     }
 
@@ -22,6 +23,8 @@ def load_data():
                 data["sites"] = []
             if "applicants" not in data:
                 data["applicants"] = []
+            if "email_recipients" not in data:
+                data["email_recipients"] = []
             return data
     except (json.JSONDecodeError, Exception):
         return get_default_data()
@@ -130,3 +133,35 @@ def search_applicants(query):
         return get_applicants()
     applicants = get_applicants()
     return [a for a in applicants if query.lower() in a["name"].lower()]
+
+def add_email_recipient(company_name, email):
+    data = load_data()
+    recipient = {
+        "id": str(uuid.uuid4()),
+        "company_name": company_name,
+        "email": email,
+        "created_at": datetime.now().isoformat()
+    }
+    data["email_recipients"].append(recipient)
+    save_data(data)
+    return recipient
+
+def update_email_recipient(recipient_id, company_name, email):
+    data = load_data()
+    for recipient in data["email_recipients"]:
+        if recipient["id"] == recipient_id:
+            recipient["company_name"] = company_name
+            recipient["email"] = email
+            recipient["updated_at"] = datetime.now().isoformat()
+            save_data(data)
+            return recipient
+    return None
+
+def delete_email_recipient(recipient_id):
+    data = load_data()
+    data["email_recipients"] = [r for r in data["email_recipients"] if r["id"] != recipient_id]
+    save_data(data)
+
+def get_email_recipients():
+    data = load_data()
+    return data.get("email_recipients", [])
