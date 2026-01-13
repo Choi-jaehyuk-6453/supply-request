@@ -4,6 +4,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from email.header import Header
 
 
 EMAIL_CONFIG = {
@@ -36,7 +37,7 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
         msg = MIMEMultipart()
         msg['From'] = smtp_email
         msg['To'] = to_email
-        msg['Subject'] = subject
+        msg['Subject'] = Header(subject, 'utf-8')
         
         msg.attach(MIMEText(body, 'plain', 'utf-8'))
         
@@ -48,9 +49,11 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
             encoders.encode_base64(part)
             
             filename = os.path.basename(attachment_path)
+            encoded_filename = Header(filename, 'utf-8').encode()
             part.add_header(
                 'Content-Disposition',
-                f'attachment; filename="{filename}"'
+                'attachment',
+                filename=('utf-8', '', filename)
             )
             msg.attach(part)
         
