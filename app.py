@@ -11,6 +11,7 @@ from reference_data import (
     add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name,
     add_email_recipient, update_email_recipient, delete_email_recipient, get_email_recipients
 )
+from draft_manager import save_draft, get_draft, delete_draft, get_draft_list, update_draft
 
 st.set_page_config(
     page_title="경비용품 및 피복 신청 관리 시스템",
@@ -40,6 +41,12 @@ if 'pdf_path' not in st.session_state:
     st.session_state.pdf_path = None
 if 'form_data' not in st.session_state:
     st.session_state.form_data = None
+if 'loaded_draft_id' not in st.session_state:
+    st.session_state.loaded_draft_id = None
+if 'edit_mode' not in st.session_state:
+    st.session_state.edit_mode = False
+if 'draft_metadata' not in st.session_state:
+    st.session_state.draft_metadata = None
 
 with st.sidebar:
     st.header("설정")
@@ -69,6 +76,43 @@ st.markdown(f'<p class="sub-header">현재 선택: {company} ABM / {app_type} �
 
 if menu == "신청서 작성":
     
+    drafts = get_draft_list()
+    if drafts:
+        with st.expander("📂 임시저장 목록", expanded=False):
+            for draft in drafts:
+                col_d1, col_d2, col_d3 = st.columns([3, 1, 1])
+                with col_d1:
+                    st.write(f"**{draft['site_name']}** - {draft['company']} {draft['app_type']} ({draft['item_count']}개 품목)")
+                    st.caption(f"저장일시: {draft['saved_at']}")
+                with col_d2:
+                    if st.button("불러오기", key=f"load_{draft['id']}"):
+                        loaded = get_draft(draft['id'])
+                        if loaded:
+                            st.session_state.loaded_draft_id = draft['id']
+                            if loaded.get('app_type') == '경비물품':
+                                st.session_state.supplies_items = loaded.get('items', [])
+                            else:
+                                st.session_state.uniform_items = loaded.get('items', [])
+                            st.session_state.draft_metadata = {
+                                'site_name': loaded.get('site_name', ''),
+                                'applicant': loaded.get('applicant', ''),
+                                'applicant_contact': loaded.get('applicant_contact', ''),
+                                'address': loaded.get('address', ''),
+                                'contact': loaded.get('contact', ''),
+                                'remarks': loaded.get('remarks', ''),
+                                'application_date': loaded.get('application_date', '')
+                            }
+                            st.rerun()
+                with col_d3:
+                    if st.button("삭제", key=f"del_draft_{draft['id']}"):
+                        delete_draft(draft['id'])
+                        st.success("삭제되었습니다.")
+                        st.rerun()
+    
+    draft_meta = st.session_state.draft_metadata
+    if draft_meta:
+        st.info(f"📂 임시저장 데이터를 불러왔습니다: {draft_meta.get('site_name', '')}")
+    
     st.subheader("기본 정보 입력")
     
     sites = get_sites()
@@ -83,22 +127,40 @@ if menu == "신청서 작성":
     col1, col2 = st.columns(2)
     
     with col1:
+        if draft_meta and draft_meta.get('application_date'):
+            try:
+                default_date = datetime.strptime(draft_meta['application_date'], '%Y-%m-%d').date()
+            except:
+                default_date = date.today()
+        else:
+            default_date = date.today()
+        
         application_date = st.date_input(
             "신청일",
-            value=date.today(),
+            value=default_date,
             format="YYYY-MM-DD"
         )
+        
+        draft_site_name = draft_meta.get('site_name', '') if draft_meta else ''
+        if draft_site_name and draft_site_name in site_names:
+            site_index = site_names.index(draft_site_name)
+        elif draft_site_name:
+            site_index = 0
+        else:
+            site_index = 0
         
         selected_site = st.selectbox(
             "현장명 선택",
             options=site_names,
-            index=0,
+            index=site_index,
             help="등록된 현장을 선택하거나 '직접 입력'을 선택하세요"
         )
         
         if selected_site == "직접 입력":
+            default_site_value = draft_site_name if draft_meta else ''
             site_name = st.text_input(
                 "현장명",
+                value=default_site_value,
                 placeholder="예: 고산센트레빌, 성남메트로칸",
                 key="manual_site"
             )
@@ -106,16 +168,26 @@ if menu == "신청서 작성":
             site_name = selected_site
             site_info = get_site_by_name(selected_site)
         
+        draft_applicant = draft_meta.get('applicant', '') if draft_meta else ''
+        if draft_applicant and draft_applicant in applicant_names:
+            applicant_index = applicant_names.index(draft_applicant)
+        elif draft_applicant:
+            applicant_index = 0
+        else:
+            applicant_index = 0
+        
         selected_applicant = st.selectbox(
             "신청자 선택",
             options=applicant_names,
-            index=0,
+            index=applicant_index,
             help="등록된 신청자를 선택하거나 '직접 입력'을 선택하세요"
         )
         
         if selected_applicant == "직접 입력":
+            default_applicant_value = draft_applicant if draft_meta else ''
             applicant = st.text_input(
                 "신청자",
+                value=default_applicant_value,
                 placeholder="예: 김솔휘 대리",
                 key="manual_applicant"
             )
@@ -124,7 +196,9 @@ if menu == "신청서 작성":
             applicant_info = get_applicant_by_name(selected_applicant)
     
     with col2:
-        if applicant_info:
+        if draft_meta and draft_meta.get('applicant_contact'):
+            default_applicant_contact = draft_meta['applicant_contact']
+        elif applicant_info:
             default_applicant_contact = applicant_info.get("contact", "")
         else:
             default_applicant_contact = ""
@@ -135,11 +209,18 @@ if menu == "신청서 작성":
             placeholder="예: 010-5089-3105"
         )
         
-        if site_info:
+        if draft_meta and draft_meta.get('address'):
+            default_address = draft_meta['address']
+        elif site_info:
             default_address = site_info.get("address", "")
-            default_contact = site_info.get("contact", "")
         else:
             default_address = ""
+        
+        if draft_meta and draft_meta.get('contact'):
+            default_contact = draft_meta['contact']
+        elif site_info:
+            default_contact = site_info.get("contact", "")
+        else:
             default_contact = ""
         
         address = st.text_input(
@@ -250,14 +331,16 @@ if menu == "신청서 작성":
         
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
+    default_remarks = draft_meta.get('remarks', '') if draft_meta else ''
     remarks = st.text_area(
         "비고 / 참고사항",
+        value=default_remarks,
         placeholder="추가 참고사항을 입력하세요"
     )
     
     st.divider()
     
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns([1, 1, 1, 1])
     
     with col_btn1:
         if st.button("신청서 생성 (PDF)", type="primary", use_container_width=True):
@@ -322,10 +405,54 @@ if menu == "신청서 작성":
                 )
                 if success:
                     st.success(message)
+                    if st.session_state.loaded_draft_id:
+                        delete_draft(st.session_state.loaded_draft_id)
+                        st.session_state.loaded_draft_id = None
                 else:
                     st.error(message)
             else:
                 st.warning("먼저 신청서를 생성해주세요.")
+    
+    with col_btn3:
+        if st.button("💾 임시저장", use_container_width=True):
+            if app_type == "경비물품":
+                items_to_save = st.session_state.supplies_items
+            else:
+                items_to_save = st.session_state.uniform_items
+            
+            draft_data = {
+                'company': company,
+                'app_type': app_type,
+                'application_date': application_date.strftime('%Y-%m-%d'),
+                'site_name': site_name,
+                'applicant': applicant,
+                'applicant_contact': applicant_contact,
+                'address': address,
+                'contact': contact,
+                'remarks': remarks,
+                'items': items_to_save
+            }
+            
+            if st.session_state.loaded_draft_id:
+                update_draft(st.session_state.loaded_draft_id, draft_data)
+                st.success("임시저장이 업데이트되었습니다.")
+            else:
+                draft_id = save_draft(draft_data)
+                st.session_state.loaded_draft_id = draft_id
+                st.success("임시저장되었습니다.")
+    
+    with col_btn4:
+        if st.button("🔄 새로 작성", use_container_width=True):
+            st.session_state.loaded_draft_id = None
+            st.session_state.pdf_generated = False
+            st.session_state.pdf_path = None
+            st.session_state.form_data = None
+            st.session_state.draft_metadata = None
+            if 'supplies_items' in st.session_state:
+                del st.session_state.supplies_items
+            if 'uniform_items' in st.session_state:
+                del st.session_state.uniform_items
+            st.rerun()
     
     if st.session_state.pdf_generated and st.session_state.pdf_path:
         st.divider()
@@ -412,27 +539,172 @@ elif menu == "데이터 조회":
     df = get_master_data()
     
     if not df.empty:
-        col_filter1, col_filter2 = st.columns(2)
+        df['날짜'] = pd.to_datetime(df['날짜'], errors='coerce')
+        
+        st.markdown("### 검색 필터")
+        col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)
         
         with col_filter1:
             companies = ['전체'] + df['법인명'].dropna().unique().tolist()
-            selected_company = st.selectbox("법인명 필터", companies)
+            selected_company = st.selectbox("법인명", companies)
         
         with col_filter2:
             types = ['전체'] + df['구분'].dropna().unique().tolist()
-            selected_type = st.selectbox("구분 필터", types)
+            selected_type = st.selectbox("구분", types)
+        
+        with col_filter3:
+            months = ['전체'] + sorted(df['날짜'].dt.strftime('%Y-%m').dropna().unique().tolist(), reverse=True)
+            selected_month = st.selectbox("월별", months)
+        
+        with col_filter4:
+            sites = ['전체'] + df['현장명'].dropna().unique().tolist()
+            selected_site_filter = st.selectbox("현장명", sites)
+        
+        use_date_filter = st.checkbox("기간 검색 사용", value=False)
+        if use_date_filter:
+            col_date1, col_date2 = st.columns(2)
+            with col_date1:
+                start_date = st.date_input("시작일", value=date.today().replace(day=1), key="start_date")
+            with col_date2:
+                end_date = st.date_input("종료일", value=date.today(), key="end_date")
+        else:
+            start_date = None
+            end_date = None
         
         filtered_df = df.copy()
         if selected_company != '전체':
             filtered_df = filtered_df[filtered_df['법인명'] == selected_company]
         if selected_type != '전체':
             filtered_df = filtered_df[filtered_df['구분'] == selected_type]
+        if selected_month != '전체':
+            filtered_df = filtered_df[filtered_df['날짜'].dt.strftime('%Y-%m') == selected_month]
+        if selected_site_filter != '전체':
+            filtered_df = filtered_df[filtered_df['현장명'] == selected_site_filter]
+        if start_date:
+            filtered_df = filtered_df[filtered_df['날짜'] >= pd.Timestamp(start_date)]
+        if end_date:
+            filtered_df = filtered_df[filtered_df['날짜'] <= pd.Timestamp(end_date)]
         
-        st.dataframe(filtered_df, use_container_width=True)
+        st.markdown("### 조회 결과")
         
         if not filtered_df.empty:
-            total = filtered_df['합계금액'].sum()
-            st.metric("조회 결과 총액", f"₩{total:,.0f}")
+            col_metric1, col_metric2, col_metric3 = st.columns(3)
+            with col_metric1:
+                st.metric("총 건수", f"{len(filtered_df)}건")
+            with col_metric2:
+                total = filtered_df['합계금액'].sum()
+                st.metric("총액", f"₩{total:,.0f}")
+            with col_metric3:
+                unique_sites = filtered_df['현장명'].nunique()
+                st.metric("현장 수", f"{unique_sites}개")
+            
+            display_df = filtered_df.copy()
+            display_df['날짜'] = display_df['날짜'].dt.strftime('%Y-%m-%d')
+            
+            st.dataframe(display_df, use_container_width=True, height=400)
+            
+            csv = display_df.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 엑셀 다운로드 (CSV)",
+                data=csv,
+                file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+            
+            st.divider()
+            st.markdown("### 신청서별 조회 (편집 가능)")
+            
+            grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
+                '품목명': 'count',
+                '합계금액': 'sum'
+            }).reset_index()
+            grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
+            grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
+            
+            for idx, row in grouped.iterrows():
+                with st.expander(f"📄 {row['날짜_str']} - {row['현장명']} ({row['구분']}) - {row['품목수']}개 품목"):
+                    app_items = filtered_df[
+                        (filtered_df['날짜'] == row['날짜']) & 
+                        (filtered_df['현장명'] == row['현장명']) & 
+                        (filtered_df['신청자'] == row['신청자']) &
+                        (filtered_df['구분'] == row['구분'])
+                    ]
+                    
+                    st.write(f"**법인명:** {row['법인명']}")
+                    st.write(f"**신청자:** {row['신청자']}")
+                    st.write(f"**총액:** ₩{row['총액']:,.0f}")
+                    
+                    items_display = app_items[['품목명', '규격', '수량']].copy()
+                    st.dataframe(items_display, use_container_width=True, hide_index=True)
+                    
+                    if st.button("✏️ 이 신청서 수정하기", key=f"edit_app_{idx}"):
+                        draft_data = {
+                            'company': row['법인명'],
+                            'app_type': row['구분'],
+                            'application_date': row['날짜_str'],
+                            'site_name': row['현장명'],
+                            'applicant': row['신청자'],
+                            'applicant_contact': '',
+                            'address': '',
+                            'contact': '',
+                            'remarks': '',
+                            'items': []
+                        }
+                        
+                        if row['구분'] == '경비물품':
+                            for _, item_row in app_items.iterrows():
+                                draft_data['items'].append({
+                                    '품목명': item_row['품목명'],
+                                    '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
+                                    '수량': int(item_row['수량'])
+                                })
+                            st.session_state.supplies_items = draft_data['items']
+                        else:
+                            for _, item_row in app_items.iterrows():
+                                spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
+                                top_size = '100'
+                                bottom_size = '32'
+                                hat_size = '중'
+                                
+                                if '상의:' in spec:
+                                    try:
+                                        parts = spec.split('/')
+                                        for part in parts:
+                                            if part.startswith('상의:'):
+                                                top_size = part.replace('상의:', '')
+                                            elif part.startswith('하의:'):
+                                                bottom_size = part.replace('하의:', '')
+                                            elif part.startswith('모자:'):
+                                                hat_size = part.replace('모자:', '')
+                                    except:
+                                        pass
+                                
+                                draft_data['items'].append({
+                                    '업종': '경비직',
+                                    '직책': '경비원',
+                                    '근무자': '',
+                                    '상의': top_size,
+                                    '하의': bottom_size,
+                                    '모자': hat_size,
+                                    '품목': item_row['품목명']
+                                })
+                            st.session_state.uniform_items = draft_data['items']
+                        
+                        st.session_state.draft_metadata = {
+                            'site_name': row['현장명'],
+                            'applicant': row['신청자'],
+                            'applicant_contact': '',
+                            'address': '',
+                            'contact': '',
+                            'remarks': '',
+                            'application_date': row['날짜_str']
+                        }
+                        
+                        draft_id = save_draft(draft_data)
+                        st.session_state.loaded_draft_id = draft_id
+                        st.success("신청서가 임시저장으로 로드되었습니다. '신청서 작성' 메뉴에서 수정하세요.")
+        else:
+            st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
         st.info("저장된 데이터가 없습니다.")
 
