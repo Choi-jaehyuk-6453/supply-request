@@ -6,6 +6,10 @@ import os
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
 from excel_handler import append_to_master, get_master_data, get_monthly_summary, initialize_excel
+from reference_data import (
+    get_sites, get_applicants, add_site, update_site, delete_site,
+    add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name
+)
 
 st.set_page_config(
     page_title="경비용품 및 피복 신청 관리 시스템",
@@ -55,7 +59,7 @@ with st.sidebar:
     
     menu = st.radio(
         "메뉴",
-        options=["신청서 작성", "데이터 조회", "월별 집계"],
+        options=["신청서 작성", "데이터 조회", "월별 집계", "관리자 모드"],
         index=0
     )
 
@@ -66,6 +70,12 @@ if menu == "신청서 작성":
     
     st.subheader("기본 정보 입력")
     
+    sites = get_sites()
+    applicants_list = get_applicants()
+    
+    site_names = ["직접 입력"] + [s["name"] for s in sites]
+    applicant_names = ["직접 입력"] + [a["name"] for a in applicants_list]
+    
     col1, col2 = st.columns(2)
     
     with col1:
@@ -75,29 +85,68 @@ if menu == "신청서 작성":
             format="YYYY-MM-DD"
         )
         
-        site_name = st.text_input(
-            "현장명",
-            placeholder="예: 고산센트레빌, 성남메트로칸"
+        selected_site = st.selectbox(
+            "현장명 선택",
+            options=site_names,
+            index=0,
+            help="등록된 현장을 선택하거나 '직접 입력'을 선택하세요"
         )
         
-        applicant = st.text_input(
-            "신청자",
-            placeholder="예: 김솔휘 대리"
+        if selected_site == "직접 입력":
+            site_name = st.text_input(
+                "현장명",
+                placeholder="예: 고산센트레빌, 성남메트로칸",
+                key="manual_site"
+            )
+        else:
+            site_name = selected_site
+            site_info = get_site_by_name(selected_site)
+        
+        selected_applicant = st.selectbox(
+            "신청자 선택",
+            options=applicant_names,
+            index=0,
+            help="등록된 신청자를 선택하거나 '직접 입력'을 선택하세요"
         )
+        
+        if selected_applicant == "직접 입력":
+            applicant = st.text_input(
+                "신청자",
+                placeholder="예: 김솔휘 대리",
+                key="manual_applicant"
+            )
+        else:
+            applicant = selected_applicant
+            applicant_info = get_applicant_by_name(selected_applicant)
     
     with col2:
+        if selected_applicant != "직접 입력" and 'applicant_info' in dir():
+            default_applicant_contact = applicant_info.get("contact", "") if applicant_info else ""
+        else:
+            default_applicant_contact = ""
+        
         applicant_contact = st.text_input(
             "신청자 연락처",
+            value=default_applicant_contact,
             placeholder="예: 010-5089-3105"
         )
         
+        if selected_site != "직접 입력" and 'site_info' in dir():
+            default_address = site_info.get("address", "") if site_info else ""
+            default_contact = site_info.get("contact", "") if site_info else ""
+        else:
+            default_address = ""
+            default_contact = ""
+        
         address = st.text_input(
             "배송지 주소",
+            value=default_address,
             placeholder="예: 경기도 성남시 중원구 성남대로 1133"
         )
         
         contact = st.text_input(
             "현장 연락처 (담당자)",
+            value=default_contact,
             placeholder="예: 010-2211-9352 정봉환 경비팀장"
         )
     
@@ -393,6 +442,87 @@ elif menu == "월별 집계":
             st.dataframe(pivot, use_container_width=True)
     else:
         st.info("집계할 데이터가 없습니다.")
+
+elif menu == "관리자 모드":
+    st.subheader("관리자 모드")
+    st.info("현장 정보와 신청자 정보를 등록하면 신청서 작성 시 자동으로 불러올 수 있습니다.")
+    
+    admin_tab = st.tabs(["현장 관리", "신청자 관리"])
+    
+    with admin_tab[0]:
+        st.markdown("### 현장 정보 관리")
+        
+        sites = get_sites()
+        
+        st.markdown("#### 새 현장 등록")
+        with st.form("add_site_form", clear_on_submit=True):
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                new_site_name = st.text_input("현장명", placeholder="예: 고산센트레빌")
+                new_site_address = st.text_input("배송지 주소", placeholder="예: 경기도 성남시 중원구 성남대로 1133")
+            with col_s2:
+                new_site_contact = st.text_input("현장 연락처 (담당자)", placeholder="예: 010-2211-9352 정봉환 경비팀장")
+            
+            if st.form_submit_button("현장 등록", type="primary"):
+                if new_site_name:
+                    add_site(new_site_name, new_site_address, new_site_contact)
+                    st.success(f"'{new_site_name}' 현장이 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("현장명을 입력해주세요.")
+        
+        st.markdown("#### 등록된 현장 목록")
+        if sites:
+            for site in sites:
+                with st.expander(f"📍 {site['name']}"):
+                    col_e1, col_e2, col_e3 = st.columns([2, 2, 1])
+                    with col_e1:
+                        st.text(f"주소: {site.get('address', '-')}")
+                    with col_e2:
+                        st.text(f"연락처: {site.get('contact', '-')}")
+                    with col_e3:
+                        if st.button("삭제", key=f"del_site_{site['id']}", type="secondary"):
+                            delete_site(site['id'])
+                            st.success(f"'{site['name']}' 현장이 삭제되었습니다.")
+                            st.rerun()
+        else:
+            st.info("등록된 현장이 없습니다.")
+    
+    with admin_tab[1]:
+        st.markdown("### 신청자 정보 관리")
+        
+        applicants_list = get_applicants()
+        
+        st.markdown("#### 새 신청자 등록")
+        with st.form("add_applicant_form", clear_on_submit=True):
+            col_a1, col_a2 = st.columns(2)
+            with col_a1:
+                new_applicant_name = st.text_input("신청자명", placeholder="예: 김솔휘 대리")
+            with col_a2:
+                new_applicant_contact = st.text_input("연락처", placeholder="예: 010-5089-3105")
+            
+            if st.form_submit_button("신청자 등록", type="primary"):
+                if new_applicant_name:
+                    add_applicant(new_applicant_name, new_applicant_contact)
+                    st.success(f"'{new_applicant_name}' 신청자가 등록되었습니다.")
+                    st.rerun()
+                else:
+                    st.error("신청자명을 입력해주세요.")
+        
+        st.markdown("#### 등록된 신청자 목록")
+        if applicants_list:
+            for app in applicants_list:
+                with st.expander(f"👤 {app['name']}"):
+                    col_ap1, col_ap2 = st.columns([3, 1])
+                    with col_ap1:
+                        st.text(f"연락처: {app.get('contact', '-')}")
+                    with col_ap2:
+                        if st.button("삭제", key=f"del_app_{app['id']}", type="secondary"):
+                            delete_applicant(app['id'])
+                            st.success(f"'{app['name']}' 신청자가 삭제되었습니다.")
+                            st.rerun()
+        else:
+            st.info("등록된 신청자가 없습니다.")
 
 st.sidebar.divider()
 st.sidebar.caption("© 2026 건물관리 시스템")
