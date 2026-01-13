@@ -2,9 +2,10 @@ import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.base import MIMEBase
-from email import encoders
+from email.mime.application import MIMEApplication
+from email.utils import formataddr
 from email.header import Header
+import re
 
 
 EMAIL_CONFIG = {
@@ -31,38 +32,34 @@ def get_vendor_name(app_type):
     return config.get('vendor_name', '')
 
 
-def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_path=None):
-    """네이버 SMTP를 통한 이메일 전송"""
+def send_email_with_attachment(smtp_email, smtp_password, to_email, subject, body, attachment_path=None):
+    """네이버 SMTP를 통한 이메일 전송 (첨부파일 포함)"""
     try:
         msg = MIMEMultipart()
         msg['From'] = smtp_email
         msg['To'] = to_email
         msg['Subject'] = Header(subject, 'utf-8')
         
-        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+        text_part = MIMEText(body, 'plain', 'utf-8')
+        msg.attach(text_part)
         
         if attachment_path and os.path.exists(attachment_path):
-            with open(attachment_path, 'rb') as attachment:
-                part = MIMEBase('application', 'octet-stream')
-                part.set_payload(attachment.read())
-            
-            encoders.encode_base64(part)
-            
             filename = os.path.basename(attachment_path)
-            encoded_filename = Header(filename, 'utf-8').encode()
-            part.add_header(
-                'Content-Disposition',
+            
+            with open(attachment_path, 'rb') as f:
+                attachment = MIMEApplication(f.read(), _subtype='pdf')
+            
+            attachment.add_header(
+                'Content-Disposition', 
                 'attachment',
                 filename=('utf-8', '', filename)
             )
-            msg.attach(part)
+            msg.attach(attachment)
         
-        server = smtplib.SMTP('smtp.naver.com', 587)
-        server.starttls()
-        server.login(smtp_email, smtp_password)
-        
-        server.sendmail(smtp_email, to_email, msg.as_bytes())
-        server.quit()
+        with smtplib.SMTP('smtp.naver.com', 587) as server:
+            server.starttls()
+            server.login(smtp_email, smtp_password)
+            server.send_message(msg)
         
         return True, "이메일이 성공적으로 전송되었습니다."
     
@@ -75,11 +72,16 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
 
 
 def send_application_email(smtp_email, smtp_password, app_type, company, site_name, pdf_path, custom_to_email=None):
-    """신청서 이메일 전송"""
+    """신청서 이메일 전송 - PDF 파일명을 제목으로 사용"""
     config = EMAIL_CONFIG.get(app_type, EMAIL_CONFIG['경비물품'])
     
     to_email = custom_to_email if custom_to_email else config['to']
-    subject = f"[{company}] {site_name} {config['subject_prefix']}"
+    
+    if pdf_path:
+        filename = os.path.basename(pdf_path)
+        subject = os.path.splitext(filename)[0]
+    else:
+        subject = f"[{company}] {site_name} {config['subject_prefix']}"
     
     body = f"""안녕하세요.
 
@@ -90,4 +92,4 @@ def send_application_email(smtp_email, smtp_password, app_type, company, site_na
 감사합니다.
 """
     
-    return send_email(smtp_email, smtp_password, to_email, subject, body, pdf_path)
+    return send_email_with_attachment(smtp_email, smtp_password, to_email, subject, body, pdf_path)
