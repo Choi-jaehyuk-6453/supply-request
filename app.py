@@ -106,34 +106,43 @@ if menu == "신청서 작성":
     st.subheader("품목 입력")
     
     if app_type == "경비물품":
-        st.info("경비물품을 추가해주세요. 행을 추가하려면 표 하단의 + 버튼을 클릭하세요.")
+        st.info("경비물품을 입력해주세요.")
         
         if 'supplies_items' not in st.session_state:
-            st.session_state.supplies_items = pd.DataFrame({
-                '품목명': [''],
-                '규격(옵션)': [''],
-                '수량': [1],
-                '단가': [0]
-            })
+            st.session_state.supplies_items = [
+                {'품목명': '', '규격': '', '수량': 1}
+            ]
         
-        edited_supplies = st.data_editor(
-            st.session_state.supplies_items,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                '품목명': st.column_config.TextColumn('품목명', required=True),
-                '규격(옵션)': st.column_config.TextColumn('규격(옵션)'),
-                '수량': st.column_config.NumberColumn('수량', min_value=1, default=1),
-                '단가': st.column_config.NumberColumn('단가', min_value=0, default=0, format="₩%d")
-            }
-        )
+        col_add_sup, col_del_sup = st.columns([1, 5])
+        with col_add_sup:
+            if st.button("➕ 행 추가", use_container_width=True, key="add_supply"):
+                st.session_state.supplies_items.append({'품목명': '', '규격': '', '수량': 1})
+                st.rerun()
         
-        st.session_state.supplies_items = edited_supplies
+        supplies_to_delete = []
+        for idx, item in enumerate(st.session_state.supplies_items):
+            with st.container():
+                cols = st.columns([0.5, 3, 2, 1, 0.5])
+                with cols[0]:
+                    st.write(f"**{idx+1}**")
+                with cols[1]:
+                    item['품목명'] = st.text_input('품목명', value=item.get('품목명', ''), key=f"sup_name_{idx}", label_visibility="collapsed", placeholder="품목명 입력")
+                with cols[2]:
+                    item['규격'] = st.text_input('규격', value=item.get('규격', ''), key=f"sup_spec_{idx}", label_visibility="collapsed", placeholder="규격/옵션")
+                with cols[3]:
+                    item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"sup_qty_{idx}", label_visibility="collapsed")
+                with cols[4]:
+                    if st.button("🗑️", key=f"del_sup_{idx}"):
+                        supplies_to_delete.append(idx)
         
-        if not edited_supplies.empty:
-            edited_supplies['합계'] = edited_supplies['수량'] * edited_supplies['단가']
-            total_amount = edited_supplies['합계'].sum()
-            st.metric("총 합계 금액", f"₩{total_amount:,.0f}")
+        if supplies_to_delete:
+            for idx in sorted(supplies_to_delete, reverse=True):
+                st.session_state.supplies_items.pop(idx)
+            st.rerun()
+        
+        st.markdown("**No | 품목명 | 규격 | 수량**", help="각 항목을 입력하세요")
+        
+        edited_supplies = pd.DataFrame(st.session_state.supplies_items)
     
     else:
         st.info("피복 신청 품목을 입력해주세요.")
@@ -221,9 +230,8 @@ if menu == "신청서 작성":
                         if row['품목명']:
                             items.append({
                                 'name': row['품목명'],
-                                'spec': row['규격(옵션)'],
-                                'quantity': int(row['수량']),
-                                'unit_price': int(row['단가'])
+                                'spec': row.get('규격', ''),
+                                'quantity': int(row['수량'])
                             })
                     form_data['items'] = items
                 else:

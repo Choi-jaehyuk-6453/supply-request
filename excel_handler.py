@@ -69,7 +69,7 @@ def append_to_master(data, app_type, items):
                 product_name = item.get('name', '')
                 spec = item.get('spec', '')
                 quantity = item.get('quantity', 0)
-                unit_price = item.get('unit_price', 0)
+                unit_price = 0
             
             total = quantity * unit_price
             

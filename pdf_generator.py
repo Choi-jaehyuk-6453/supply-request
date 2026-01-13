@@ -322,36 +322,22 @@ def generate_supplies_pdf(data, output_path):
             Paragraph('품목명', get_korean_style('h', 9, TA_CENTER, bold=True)),
             Paragraph('규격', get_korean_style('h', 9, TA_CENTER, bold=True)),
             Paragraph('수량', get_korean_style('h', 9, TA_CENTER, bold=True)),
-            Paragraph('단가', get_korean_style('h', 9, TA_CENTER, bold=True)),
-            Paragraph('합계', get_korean_style('h', 9, TA_CENTER, bold=True)),
         ]
         detail_data = [detail_header]
         
-        total_amount = 0
         for idx, item in enumerate(items, 1):
             name = item.get('name', '')
             spec = item.get('spec', '')
             qty = item.get('quantity', 0)
-            unit_price = item.get('unit_price', 0)
-            subtotal = qty * unit_price
-            total_amount += subtotal
             
             detail_data.append([
                 Paragraph(str(idx), get_korean_style('c', 9, TA_CENTER)),
                 Paragraph(name, get_korean_style('c', 9, TA_LEFT)),
                 Paragraph(spec, get_korean_style('c', 9, TA_CENTER)),
                 Paragraph(str(qty), get_korean_style('c', 9, TA_CENTER)),
-                Paragraph(f"{unit_price:,}", get_korean_style('c', 9, TA_RIGHT)),
-                Paragraph(f"{subtotal:,}", get_korean_style('c', 9, TA_RIGHT)),
             ])
         
-        detail_data.append([
-            '', '', '', '',
-            Paragraph('총액', get_korean_style('h', 9, TA_CENTER, bold=True)),
-            Paragraph(f"{total_amount:,}", get_korean_style('c', 9, TA_RIGHT, bold=True)),
-        ])
-        
-        detail_table = Table(detail_data, colWidths=[12*mm, 55*mm, 35*mm, 20*mm, 25*mm, 25*mm])
+        detail_table = Table(detail_data, colWidths=[15*mm, 80*mm, 50*mm, 25*mm])
         detail_table.setStyle(TableStyle([
             ('FONT', (0, 0), (-1, -1), 'NanumGothic', 9),
             ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
