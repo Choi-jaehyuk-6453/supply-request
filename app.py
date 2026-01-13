@@ -675,21 +675,18 @@ elif menu == "데이터 조회":
         st.markdown("### 조회 결과")
         
         if not filtered_df.empty:
-            col_metric1, col_metric2, col_metric3 = st.columns(3)
-            with col_metric1:
-                st.metric("총 건수", f"{len(filtered_df)}건")
-            with col_metric2:
-                total = filtered_df['합계금액'].sum()
-                st.metric("총액", f"₩{total:,.0f}")
-            with col_metric3:
-                unique_sites = filtered_df['현장명'].nunique()
-                st.metric("현장 수", f"{unique_sites}개")
-            
             grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
                 '품목명': 'count',
                 '합계금액': 'sum'
             }).reset_index()
             grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목수', '총액']
+            
+            col_metric1, col_metric2 = st.columns(2)
+            with col_metric1:
+                st.metric("총 건수", f"{len(grouped)}건")
+            with col_metric2:
+                unique_sites = filtered_df['현장명'].nunique()
+                st.metric("현장 수", f"{unique_sites}개")
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
             header_cols = st.columns([1.5, 1, 1.5, 1.2, 0.8, 0.5])
