@@ -49,35 +49,43 @@ if 'draft_metadata' not in st.session_state:
     st.session_state.draft_metadata = None
 if 'selected_menu' not in st.session_state:
     st.session_state.selected_menu = "신청서 작성"
+if 'selected_company' not in st.session_state:
+    st.session_state.selected_company = "미래"
+if 'selected_app_type' not in st.session_state:
+    st.session_state.selected_app_type = "경비물품"
 
 menu_options = ["신청서 작성", "데이터 조회", "월별 집계", "관리자 모드"]
-menu_index = menu_options.index(st.session_state.selected_menu) if st.session_state.selected_menu in menu_options else 0
+company_options = ["미래", "다원"]
+app_type_options = ["경비물품", "피복"]
 
 with st.sidebar:
     st.header("설정")
     
     company = st.selectbox(
         "법인명",
-        options=["미래", "다원"],
-        index=0
+        options=company_options,
+        index=company_options.index(st.session_state.selected_company),
+        key="company_select"
     )
+    st.session_state.selected_company = company
     
     app_type = st.selectbox(
         "신청 유형",
-        options=["경비물품", "피복"],
-        index=0
+        options=app_type_options,
+        index=app_type_options.index(st.session_state.selected_app_type),
+        key="app_type_select"
     )
+    st.session_state.selected_app_type = app_type
     
     st.divider()
     
     menu = st.radio(
         "메뉴",
         options=menu_options,
-        index=menu_index
+        index=menu_options.index(st.session_state.selected_menu),
+        key="menu_radio"
     )
-    
-    if menu != st.session_state.selected_menu:
-        st.session_state.selected_menu = menu
+    st.session_state.selected_menu = menu
 
 st.markdown('<p class="main-header">경비용품 및 피복 신청 관리 시스템</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">현재 선택: {company} ABM / {app_type} 신청</p>', unsafe_allow_html=True)
@@ -697,6 +705,8 @@ elif menu == "데이터 조회":
                         
                         st.session_state.loaded_draft_id = None
                         st.session_state.selected_menu = "신청서 작성"
+                        st.session_state.selected_company = row['법인명']
+                        st.session_state.selected_app_type = row['구분']
                         st.rerun()
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
