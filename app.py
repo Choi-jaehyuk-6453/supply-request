@@ -697,7 +697,7 @@ elif menu == "데이터 조회":
             header_cols[3].markdown("**신청자**")
             header_cols[4].markdown("**품목**")
             header_cols[5].markdown("**품목수**")
-            header_cols[6].markdown("**편집**")
+            header_cols[6].markdown("**수정신청**")
             
             st.divider()
             
