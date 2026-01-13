@@ -136,42 +136,57 @@ if menu == "신청서 작성":
             st.metric("총 합계 금액", f"₩{total_amount:,.0f}")
     
     else:
-        st.info("피복 신청 품목을 입력해주세요. 행 추가는 표 하단의 + 버튼을 클릭하세요.")
+        st.info("피복 신청 품목을 입력해주세요.")
         
         top_sizes = ['이하', '90', '95', '100', '105', '110', '115', '120', '이상']
         bottom_sizes = ['이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
         hat_sizes = ['대', '중', '소']
         
-        default_uniform = pd.DataFrame({
-            '업종': ['경비직'],
-            '직책': ['경비원'],
-            '근무자': [''],
-            '상의': ['100'],
-            '하의': ['32'],
-            '모자': ['중'],
-            '품목': ['회색동복']
-        })
-        
         if 'uniform_items' not in st.session_state:
-            st.session_state.uniform_items = default_uniform.copy()
+            st.session_state.uniform_items = [
+                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+            ]
         
-        edited_uniform = st.data_editor(
-            st.session_state.uniform_items,
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True, width="small"),
-                '직책': st.column_config.TextColumn('직책', default='경비원', width="small"),
-                '근무자': st.column_config.TextColumn('근무자', width="small"),
-                '상의': st.column_config.SelectboxColumn('상의', options=top_sizes, default='100', width="small"),
-                '하의': st.column_config.SelectboxColumn('하의', options=bottom_sizes, default='32', width="small"),
-                '모자': st.column_config.SelectboxColumn('모자', options=hat_sizes, default='중', width="small"),
-                '품목': st.column_config.TextColumn('품목 (직접 입력)', default='회색동복', width="large")
-            },
-            column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목']
-        )
+        col_add, col_del = st.columns([1, 5])
+        with col_add:
+            if st.button("➕ 행 추가", use_container_width=True):
+                st.session_state.uniform_items.append(
+                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+                )
+                st.rerun()
         
-        st.session_state.uniform_items = edited_uniform
+        items_to_delete = []
+        for idx, item in enumerate(st.session_state.uniform_items):
+            with st.container():
+                cols = st.columns([0.5, 1, 1, 1.5, 1, 1, 1, 2, 0.5])
+                with cols[0]:
+                    st.write(f"**{idx+1}**")
+                with cols[1]:
+                    item['업종'] = st.selectbox('업종', ['관리직', '경비직'], index=['관리직', '경비직'].index(item.get('업종', '경비직')), key=f"job_{idx}", label_visibility="collapsed")
+                with cols[2]:
+                    item['직책'] = st.text_input('직책', value=item.get('직책', '경비원'), key=f"pos_{idx}", label_visibility="collapsed")
+                with cols[3]:
+                    item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{idx}", label_visibility="collapsed", placeholder="이름 입력")
+                with cols[4]:
+                    item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 3, key=f"top_{idx}", label_visibility="collapsed")
+                with cols[5]:
+                    item['하의'] = st.selectbox('하의', bottom_sizes, index=bottom_sizes.index(item.get('하의', '32')) if item.get('하의', '32') in bottom_sizes else 3, key=f"bot_{idx}", label_visibility="collapsed")
+                with cols[6]:
+                    item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 1, key=f"hat_{idx}", label_visibility="collapsed")
+                with cols[7]:
+                    item['품목'] = st.text_input('품목', value=item.get('품목', '회색동복'), key=f"prod_{idx}", label_visibility="collapsed", placeholder="품목 입력")
+                with cols[8]:
+                    if st.button("🗑️", key=f"del_{idx}"):
+                        items_to_delete.append(idx)
+        
+        if items_to_delete:
+            for idx in sorted(items_to_delete, reverse=True):
+                st.session_state.uniform_items.pop(idx)
+            st.rerun()
+        
+        st.markdown("**업종 | 직책 | 근무자 | 상의 | 하의 | 모자 | 품목**", help="각 항목을 입력하세요")
+        
+        edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
     remarks = st.text_area(
         "비고 / 참고사항",
