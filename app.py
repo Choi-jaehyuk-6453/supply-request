@@ -151,9 +151,6 @@ if menu == "신청서 작성":
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = default_uniform.copy()
         
-        def on_uniform_change():
-            st.session_state.uniform_items = st.session_state.uniform_editor_data
-        
         edited_uniform = st.data_editor(
             st.session_state.uniform_items,
             num_rows="dynamic",
@@ -167,9 +164,7 @@ if menu == "신청서 작성":
                 '모자': st.column_config.TextColumn('모자', width="small"),
                 '품목': st.column_config.TextColumn('품목 (직접 입력)', width="large")
             },
-            column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목'],
-            key="uniform_editor_data",
-            on_change=on_uniform_change
+            column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목']
         )
         
         st.session_state.uniform_items = edited_uniform
