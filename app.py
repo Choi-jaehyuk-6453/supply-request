@@ -138,13 +138,17 @@ if menu == "신청서 작성":
     else:
         st.info("피복 신청 품목을 입력해주세요. 행 추가는 표 하단의 + 버튼을 클릭하세요.")
         
+        top_sizes = ['이하', '90', '95', '100', '105', '110', '115', '120', '이상']
+        bottom_sizes = ['이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
+        hat_sizes = ['대', '중', '소']
+        
         default_uniform = pd.DataFrame({
             '업종': ['경비직'],
             '직책': ['경비원'],
             '근무자': [''],
             '상의': ['100'],
-            '하의': ['100'],
-            '모자': [''],
+            '하의': ['32'],
+            '모자': ['중'],
             '품목': ['회색동복']
         })
         
@@ -158,11 +162,11 @@ if menu == "신청서 작성":
             column_config={
                 '업종': st.column_config.SelectboxColumn('업종', options=['관리직', '경비직'], default='경비직', required=True, width="small"),
                 '직책': st.column_config.TextColumn('직책', default='경비원', width="small"),
-                '근무자': st.column_config.TextColumn('근무자', width="medium"),
-                '상의': st.column_config.TextColumn('상의', default='100', width="small"),
-                '하의': st.column_config.TextColumn('하의', default='100', width="small"),
-                '모자': st.column_config.TextColumn('모자', width="small"),
-                '품목': st.column_config.TextColumn('품목 (직접 입력)', width="large")
+                '근무자': st.column_config.TextColumn('근무자', width="small"),
+                '상의': st.column_config.SelectboxColumn('상의', options=top_sizes, default='100', width="small"),
+                '하의': st.column_config.SelectboxColumn('하의', options=bottom_sizes, default='32', width="small"),
+                '모자': st.column_config.SelectboxColumn('모자', options=hat_sizes, default='중', width="small"),
+                '품목': st.column_config.TextColumn('품목 (직접 입력)', default='회색동복', width="large")
             },
             column_order=['업종', '직책', '근무자', '상의', '하의', '모자', '품목']
         )
