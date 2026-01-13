@@ -31,7 +31,7 @@ def get_vendor_name(app_type):
 
 
 def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_path=None):
-    """Gmail SMTP를 통한 이메일 전송"""
+    """네이버 SMTP를 통한 이메일 전송"""
     try:
         msg = MIMEMultipart()
         msg['From'] = smtp_email
@@ -54,7 +54,7 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
             )
             msg.attach(part)
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP('smtp.naver.com', 587)
         server.starttls()
         server.login(smtp_email, smtp_password)
         
@@ -65,7 +65,7 @@ def send_email(smtp_email, smtp_password, to_email, subject, body, attachment_pa
         return True, "이메일이 성공적으로 전송되었습니다."
     
     except smtplib.SMTPAuthenticationError:
-        return False, "이메일 인증에 실패했습니다. SMTP 설정을 확인해주세요."
+        return False, "이메일 인증에 실패했습니다. 네이버 메일 설정에서 SMTP 사용을 활성화하고 비밀번호를 확인해주세요."
     except smtplib.SMTPException as e:
         return False, f"이메일 전송 중 오류가 발생했습니다: {str(e)}"
     except Exception as e:
