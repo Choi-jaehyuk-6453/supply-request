@@ -58,25 +58,30 @@ menu_options = ["신청서 작성", "데이터 조회", "월별 집계", "관리
 company_options = ["미래", "다원"]
 app_type_options = ["경비물품", "피복"]
 
+if 'pending_menu' in st.session_state:
+    st.session_state.menu_radio = st.session_state.pending_menu
+    del st.session_state.pending_menu
+if 'pending_company' in st.session_state:
+    st.session_state.company_select = st.session_state.pending_company
+    del st.session_state.pending_company
+if 'pending_app_type' in st.session_state:
+    st.session_state.app_type_select = st.session_state.pending_app_type
+    del st.session_state.pending_app_type
+
 with st.sidebar:
     st.header("설정")
-    
-    if 'company_select' not in st.session_state:
-        st.session_state.company_select = st.session_state.selected_company
-    if 'app_type_select' not in st.session_state:
-        st.session_state.app_type_select = st.session_state.selected_app_type
-    if 'menu_radio' not in st.session_state:
-        st.session_state.menu_radio = st.session_state.selected_menu
     
     company = st.selectbox(
         "법인명",
         options=company_options,
+        index=company_options.index(st.session_state.get('company_select', '미래')),
         key="company_select"
     )
     
     app_type = st.selectbox(
         "신청 유형",
         options=app_type_options,
+        index=app_type_options.index(st.session_state.get('app_type_select', '경비물품')),
         key="app_type_select"
     )
     
@@ -85,6 +90,7 @@ with st.sidebar:
     menu = st.radio(
         "메뉴",
         options=menu_options,
+        index=menu_options.index(st.session_state.get('menu_radio', '신청서 작성')),
         key="menu_radio"
     )
 
@@ -695,9 +701,9 @@ elif menu == "데이터 조회":
                     }
                     
                     st.session_state.loaded_draft_id = None
-                    st.session_state.menu_radio = "신청서 작성"
-                    st.session_state.company_select = row['법인명']
-                    st.session_state.app_type_select = row['구분']
+                    st.session_state.pending_menu = "신청서 작성"
+                    st.session_state.pending_company = row['법인명']
+                    st.session_state.pending_app_type = row['구분']
                     st.rerun()
             
             st.divider()
