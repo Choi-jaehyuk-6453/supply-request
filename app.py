@@ -47,6 +47,11 @@ if 'edit_mode' not in st.session_state:
     st.session_state.edit_mode = False
 if 'draft_metadata' not in st.session_state:
     st.session_state.draft_metadata = None
+if 'selected_menu' not in st.session_state:
+    st.session_state.selected_menu = "신청서 작성"
+
+menu_options = ["신청서 작성", "데이터 조회", "월별 집계", "관리자 모드"]
+menu_index = menu_options.index(st.session_state.selected_menu) if st.session_state.selected_menu in menu_options else 0
 
 with st.sidebar:
     st.header("설정")
@@ -67,9 +72,12 @@ with st.sidebar:
     
     menu = st.radio(
         "메뉴",
-        options=["신청서 작성", "데이터 조회", "월별 집계", "관리자 모드"],
-        index=0
+        options=menu_options,
+        index=menu_index
     )
+    
+    if menu != st.session_state.selected_menu:
+        st.session_state.selected_menu = menu
 
 st.markdown('<p class="main-header">경비용품 및 피복 신청 관리 시스템</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">현재 선택: {company} ABM / {app_type} 신청</p>', unsafe_allow_html=True)
@@ -613,22 +621,18 @@ elif menu == "데이터 조회":
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
             for idx, row in grouped.iterrows():
-                with st.expander(f"📄 {row['날짜_str']} - {row['현장명']} ({row['구분']}) - {row['품목수']}개 품목"):
-                    app_items = filtered_df[
-                        (filtered_df['날짜'] == row['날짜']) & 
-                        (filtered_df['현장명'] == row['현장명']) & 
-                        (filtered_df['신청자'] == row['신청자']) &
-                        (filtered_df['구분'] == row['구분'])
-                    ]
-                    
-                    st.write(f"**법인명:** {row['법인명']}")
-                    st.write(f"**신청자:** {row['신청자']}")
-                    st.write(f"**총액:** ₩{row['총액']:,.0f}")
-                    
-                    items_display = app_items[['품목명', '규격', '수량']].copy()
-                    st.dataframe(items_display, use_container_width=True, hide_index=True)
-                    
-                    if st.button("✏️ 이 신청서 수정하기", key=f"edit_app_{idx}"):
+                col_info, col_btn = st.columns([5, 1])
+                with col_info:
+                    st.write(f"📄 **{row['날짜_str']}** - {row['현장명']} ({row['구분']}) - {row['품목수']}개 품목, ₩{row['총액']:,.0f}")
+                with col_btn:
+                    if st.button("선택", key=f"select_app_{idx}", use_container_width=True):
+                        app_items = filtered_df[
+                            (filtered_df['날짜'] == row['날짜']) & 
+                            (filtered_df['현장명'] == row['현장명']) & 
+                            (filtered_df['신청자'] == row['신청자']) &
+                            (filtered_df['구분'] == row['구분'])
+                        ]
+                        
                         draft_data = {
                             'company': row['법인명'],
                             'app_type': row['구분'],
@@ -691,9 +695,9 @@ elif menu == "데이터 조회":
                             'application_date': row['날짜_str']
                         }
                         
-                        draft_id = save_draft(draft_data)
-                        st.session_state.loaded_draft_id = draft_id
-                        st.success("신청서가 임시저장으로 로드되었습니다. '신청서 작성' 메뉴에서 수정하세요.")
+                        st.session_state.loaded_draft_id = None
+                        st.session_state.selected_menu = "신청서 작성"
+                        st.rerun()
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
