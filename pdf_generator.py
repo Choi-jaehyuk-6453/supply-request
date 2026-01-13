@@ -84,9 +84,9 @@ def register_korean_fonts():
 
 register_korean_fonts()
 
-def get_korean_style(name, font_size=10, alignment=TA_LEFT, bold=False):
+def get_korean_style(name, font_size=10, alignment=TA_LEFT, bold=False, text_color=None):
     font_name = 'NanumGothicBold' if bold else 'NanumGothic'
-    return ParagraphStyle(
+    style = ParagraphStyle(
         name=name,
         fontName=font_name,
         fontSize=font_size,
@@ -94,6 +94,9 @@ def get_korean_style(name, font_size=10, alignment=TA_LEFT, bold=False):
         alignment=alignment,
         wordWrap='CJK'
     )
+    if text_color:
+        style.textColor = text_color
+    return style
 
 def generate_uniform_pdf(data, output_path):
     """피복신청서 PDF 생성"""
@@ -218,7 +221,8 @@ def generate_uniform_pdf(data, output_path):
     elements.append(Spacer(1, 2*mm))
     elements.append(Paragraph(f"연락처 : {contact}", normal_style))
     elements.append(Spacer(1, 5*mm))
-    elements.append(Paragraph(f"비고: {remarks}", normal_style))
+    remarks_style = get_korean_style('Remarks', 12, TA_LEFT, bold=True, text_color=colors.red)
+    elements.append(Paragraph(f"비고: {remarks}", remarks_style))
     
     doc.build(elements)
     return output_path
@@ -362,7 +366,7 @@ def generate_supplies_pdf(data, output_path):
     remarks = data.get('remarks', '경비물품 입니다.')
     remark_data = [
         [Paragraph('참고사항', get_korean_style('h', 10, TA_CENTER, bold=True)), 
-         Paragraph(remarks, get_korean_style('c', 10, TA_LEFT))],
+         Paragraph(remarks, get_korean_style('c', 12, TA_LEFT, bold=True, text_color=colors.red))],
     ]
     
     remark_table = Table(remark_data, colWidths=[25*mm, 145*mm])
