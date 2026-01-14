@@ -331,23 +331,23 @@ if menu == "신청서 작성":
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
-                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복', '수량': 1}
             ]
         
         col_add, col_del = st.columns([1, 5])
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
-                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복'}
+                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '품목': '회색동복', '수량': 1}
                 )
                 st.rerun()
         
-        st.markdown("**No | 업종 | 직책 | 근무자 | 상의 | 하의 | 모자 | 품목 | 삭제**")
+        st.markdown("**No | 업종 | 직책 | 근무자 | 상의 | 하의 | 모자 | 품목 | 수량 | 삭제**")
         
         items_to_delete = []
         for idx, item in enumerate(st.session_state.uniform_items):
             with st.container():
-                cols = st.columns([0.4, 0.8, 0.8, 1.2, 0.7, 0.7, 0.6, 2, 0.4])
+                cols = st.columns([0.4, 0.8, 0.8, 1.2, 0.7, 0.7, 0.6, 1.8, 0.6, 0.4])
                 with cols[0]:
                     st.write(f"**{idx+1}**")
                 with cols[1]:
@@ -375,6 +375,8 @@ if menu == "신청서 작성":
                     else:
                         item['품목'] = selected_uniform
                 with cols[8]:
+                    item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"unif_qty_{idx}", label_visibility="collapsed")
+                with cols[9]:
                     if st.button("🗑️", key=f"del_{idx}"):
                         items_to_delete.append(idx)
         
@@ -438,9 +440,11 @@ if menu == "신청서 작성":
                     total_amount = 0
                     for _, row in edited_uniform.iterrows():
                         if row['품목']:
+                            quantity = int(row.get('수량', 1))
                             product_info = get_uniform_product_by_name(row['품목'])
                             unit_price = product_info.get('unit_price', 0) if product_info else 0
-                            total_amount += unit_price
+                            amount = unit_price * quantity
+                            total_amount += amount
                             items.append({
                                 'job_type': row['업종'],
                                 'position': row['직책'],
@@ -449,7 +453,7 @@ if menu == "신청서 작성":
                                 'bottom_size': row['하의'],
                                 'hat_size': row['모자'],
                                 'product': row['품목'],
-                                'quantity': 1,
+                                'quantity': quantity,
                                 'unit_price': unit_price
                             })
                     form_data['items'] = items
