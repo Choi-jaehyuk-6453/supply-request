@@ -23,16 +23,184 @@ st.set_page_config(
 
 st.markdown("""
 <style>
+    /* 메인 색상 변수 - 로고 기반 */
+    :root {
+        --primary-blue: #1a3a6e;
+        --primary-orange: #f5a623;
+        --light-blue: #e8f0f8;
+        --dark-text: #2c3e50;
+        --light-gray: #f8f9fa;
+    }
+    
+    /* 메인 헤더 스타일 */
     .main-header {
-        font-size: 2rem;
-        font-weight: bold;
-        color: #1f4e79;
-        margin-bottom: 1rem;
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #1a3a6e;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid #f5a623;
     }
     .sub-header {
-        font-size: 1.2rem;
-        color: #666;
-        margin-bottom: 2rem;
+        font-size: 1rem;
+        color: #5a6a7a;
+        margin-bottom: 1.5rem;
+        font-weight: 500;
+    }
+    
+    /* 사이드바 스타일 */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%);
+        border-right: 1px solid #e0e6ed;
+    }
+    [data-testid="stSidebar"] .stSelectbox > div > div {
+        background-color: white;
+        border: 1px solid #d0d9e3;
+        border-radius: 8px;
+    }
+    [data-testid="stSidebar"] .stRadio > div {
+        background-color: white;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid #e0e6ed;
+    }
+    [data-testid="stSidebar"] .stRadio label {
+        color: #2c3e50;
+        font-weight: 500;
+    }
+    
+    /* 버튼 스타일 */
+    .stButton > button {
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #1a3a6e 0%, #2a5298 100%);
+        border: none;
+        box-shadow: 0 2px 8px rgba(26, 58, 110, 0.3);
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #2a5298 0%, #1a3a6e 100%);
+        box-shadow: 0 4px 12px rgba(26, 58, 110, 0.4);
+    }
+    .stButton > button:not([kind="primary"]) {
+        border: 1px solid #d0d9e3;
+        background-color: white;
+    }
+    .stButton > button:not([kind="primary"]):hover {
+        background-color: #f0f4f8;
+        border-color: #1a3a6e;
+    }
+    
+    /* 입력 필드 스타일 */
+    .stTextInput > div > div > input,
+    .stNumberInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        border: 1px solid #d0d9e3;
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #1a3a6e;
+        box-shadow: 0 0 0 2px rgba(26, 58, 110, 0.1);
+    }
+    
+    /* 선택박스 스타일 */
+    .stSelectbox > div > div {
+        border-radius: 8px;
+    }
+    
+    /* 정보 박스 스타일 */
+    .stAlert {
+        border-radius: 10px;
+        border: none;
+    }
+    [data-testid="stAlert"][data-baseweb="notification"] {
+        background-color: #e8f0f8;
+        border-left: 4px solid #1a3a6e;
+    }
+    
+    /* 카드 스타일 */
+    .stExpander {
+        border: 1px solid #e0e6ed;
+        border-radius: 10px;
+        background-color: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    
+    /* 데이터프레임 스타일 */
+    .stDataFrame {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid #e0e6ed;
+    }
+    
+    /* 탭 스타일 */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: transparent;
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px 8px 0 0;
+        padding: 10px 20px;
+        background-color: #f0f4f8;
+        border: 1px solid #e0e6ed;
+        border-bottom: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: white;
+        border-color: #1a3a6e;
+        border-bottom: 2px solid white;
+        color: #1a3a6e;
+        font-weight: 600;
+    }
+    
+    /* 메트릭 스타일 */
+    [data-testid="stMetric"] {
+        background-color: white;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #e0e6ed;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    [data-testid="stMetricLabel"] {
+        color: #5a6a7a;
+        font-weight: 500;
+    }
+    [data-testid="stMetricValue"] {
+        color: #1a3a6e;
+        font-weight: 700;
+    }
+    
+    /* 구분선 스타일 */
+    hr {
+        border-color: #e0e6ed;
+        margin: 1.5rem 0;
+    }
+    
+    /* 서브헤더 스타일 */
+    .stSubheader {
+        color: #1a3a6e;
+        font-weight: 600;
+        border-left: 4px solid #f5a623;
+        padding-left: 12px;
+    }
+    
+    /* 성공/경고/에러 메시지 */
+    .stSuccess {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+    }
+    .stWarning {
+        background-color: #fff3cd;
+        border-left: 4px solid #f5a623;
+    }
+    .stError {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
     }
 </style>
 """, unsafe_allow_html=True)
