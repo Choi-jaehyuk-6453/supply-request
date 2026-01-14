@@ -71,7 +71,9 @@ if 'pending_app_type' in st.session_state:
     del st.session_state.pending_app_type
 
 with st.sidebar:
-    st.image("attached_assets/미래ABM_LOGO_1768364713952.png", use_container_width=True)
+    col_logo, col_empty = st.columns([1, 1])
+    with col_logo:
+        st.image("attached_assets/미래ABM_LOGO_1768364713952.png", use_container_width=True)
     st.header("설정")
     
     company = st.selectbox(
@@ -1105,4 +1107,4 @@ elif menu == "관리자 모드":
             st.info("등록된 피복 품목이 없습니다.")
 
 st.sidebar.divider()
-st.sidebar.caption("경비용품 및 피복 관리시스템")
+st.sidebar.caption("ⓒ 2026 경비용품 및 피복 관리시스템")
