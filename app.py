@@ -34,12 +34,12 @@ st.markdown("""
     
     /* 메인 헤더 스타일 */
     .main-header {
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: #1a3a6e;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 3px solid #f5a623;
+        font-size: 1.5rem !important;
+        font-weight: 600 !important;
+        color: #1a3a6e !important;
+        margin-bottom: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        border-bottom: 3px solid #f5a623 !important;
     }
     .sub-header {
         font-size: 1rem;
