@@ -5,7 +5,7 @@ import os
 
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
-from excel_handler import append_to_master, get_master_data, get_monthly_summary, initialize_excel
+from excel_handler import append_to_master, get_master_data, get_monthly_summary, initialize_excel, get_monthly_summary_data, get_all_monthly_summary
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
     add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name,
@@ -952,30 +952,63 @@ elif menu == "데이터 조회":
 elif menu == "월별 집계":
     st.subheader("월별 비용 집계")
     
-    initialize_excel()
-    df_summary = get_monthly_summary()
+    summary_data = get_all_monthly_summary()
+    
+    summary_type = st.radio(
+        "집계 유형",
+        options=["피복", "경비물품"],
+        horizontal=True,
+        key="summary_type_radio"
+    )
+    
+    company_filter = st.selectbox(
+        "법인 선택",
+        options=["전체", "미래", "다원"],
+        key="summary_company_filter"
+    )
+    
+    sheet_key = '피복' if summary_type == '피복' else '경비물품'
+    df_summary = summary_data.get(sheet_key, pd.DataFrame())
     
     if not df_summary.empty:
-        st.dataframe(df_summary, use_container_width=True)
+        if company_filter != "전체":
+            df_summary = df_summary[df_summary['구분'] == company_filter]
+        
+        display_cols = ['구분', '현장명', '예산', '1월', '2월', '3월', '4월', '5월', '6월', 
+                       '7월', '8월', '9월', '10월', '11월', '12월', '합계', '가용']
+        available_cols = [col for col in display_cols if col in df_summary.columns]
+        df_display = df_summary[available_cols].copy()
+        
+        for col in df_display.columns:
+            if col not in ['구분', '현장명']:
+                df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).astype(int)
+        
+        st.dataframe(
+            df_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "예산": st.column_config.NumberColumn("예산", format="%d"),
+                "합계": st.column_config.NumberColumn("합계", format="%d"),
+                "가용": st.column_config.NumberColumn("가용", format="%d"),
+            }
+        )
         
         st.divider()
         
-        df_master = get_master_data()
-        if not df_master.empty:
-            df_master['날짜'] = pd.to_datetime(df_master['날짜'], errors='coerce')
-            df_master['년월'] = df_master['날짜'].dt.strftime('%Y-%m')
-            
-            pivot = pd.pivot_table(
-                df_master,
-                values='합계금액',
-                index='현장명',
-                columns='년월',
-                aggfunc='sum',
-                fill_value=0
-            )
-            
-            st.subheader("현장별 월별 집계표")
-            st.dataframe(pivot, use_container_width=True)
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        with col_m1:
+            total_budget = df_display['예산'].sum() if '예산' in df_display.columns else 0
+            st.metric("총 예산", f"{total_budget:,}원")
+        with col_m2:
+            total_used = df_display['합계'].sum() if '합계' in df_display.columns else 0
+            st.metric("총 사용", f"{total_used:,}원")
+        with col_m3:
+            total_available = df_display['가용'].sum() if '가용' in df_display.columns else 0
+            st.metric("총 가용", f"{total_available:,}원")
+        with col_m4:
+            usage_rate = (total_used / total_budget * 100) if total_budget > 0 else 0
+            st.metric("사용률", f"{usage_rate:.1f}%")
     else:
         st.info("집계할 데이터가 없습니다.")
 

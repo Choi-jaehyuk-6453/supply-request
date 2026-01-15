@@ -10,6 +10,10 @@ DB_FILE = "management_db.xlsx"
 MASTER_SHEET = "Master_Data"
 SUMMARY_SHEET = "Monthly_Summary"
 
+MONTHLY_FILE = "monthly_summary.xlsx"
+UNIFORM_SHEET = "피복"
+SUPPLY_SHEET = "경비물품 등"
+
 NETWORK_PATH = r"\\192.168.0.100\보안팀\4.(미래_다원) 2026년 피복(장비), 경비용품비 사용현황"
 NETWORK_FILE = os.path.join(NETWORK_PATH, "management_db.xlsx") if os.path.exists(NETWORK_PATH) else None
 
@@ -90,6 +94,12 @@ def append_to_master(data, app_type, items):
         wb.close()
         
         update_monthly_summary()
+        
+        date_obj = datetime.strptime(date_str.replace('.', '-').replace(' ', ''), '%Y-%m-%d') if '.' in date_str else datetime.strptime(date_str, '%Y-%m-%d')
+        month = date_obj.month
+        total_amount = sum(item.get('quantity', 1) * item.get('unit_price', 0) for item in items)
+        if total_amount > 0:
+            update_monthly_summary_excel(site_name, company, app_type, month, total_amount)
         
         network_success, network_msg = sync_to_network()
         if network_success:
@@ -178,3 +188,93 @@ def load_price_list():
         }
     }
     return default_prices
+
+
+def get_monthly_summary_data(app_type, company=None):
+    """월별 집계 엑셀 데이터 조회"""
+    if not os.path.exists(MONTHLY_FILE):
+        return pd.DataFrame()
+    
+    try:
+        sheet_name = UNIFORM_SHEET if app_type == '피복' else SUPPLY_SHEET
+        df = pd.read_excel(MONTHLY_FILE, sheet_name=sheet_name, header=0)
+        
+        if company:
+            df = df[df['구분'] == company]
+        
+        return df
+    except Exception as e:
+        print(f"월별 집계 데이터 조회 오류: {str(e)}")
+        return pd.DataFrame()
+
+
+def update_monthly_summary_excel(site_name, company, app_type, month, amount):
+    """월별 집계 엑셀에 금액 업데이트"""
+    if not os.path.exists(MONTHLY_FILE):
+        return False, "월별 집계 파일이 존재하지 않습니다."
+    
+    try:
+        sheet_name = UNIFORM_SHEET if app_type == '피복' else SUPPLY_SHEET
+        
+        wb = load_workbook(MONTHLY_FILE)
+        ws = wb[sheet_name]
+        
+        month_col = {
+            1: 6, 2: 7, 3: 8, 4: 9, 5: 10, 6: 11,
+            7: 12, 8: 13, 9: 14, 10: 15, 11: 16, 12: 17
+        }
+        
+        col_idx = month_col.get(month)
+        if not col_idx:
+            return False, "잘못된 월입니다."
+        
+        site_row = None
+        for row_idx in range(2, ws.max_row + 1):
+            cell_company = ws.cell(row=row_idx, column=2).value
+            cell_site = ws.cell(row=row_idx, column=4).value
+            if cell_company == company and cell_site == site_name:
+                site_row = row_idx
+                break
+        
+        if site_row:
+            current_value = ws.cell(row=site_row, column=col_idx).value or 0
+            new_value = current_value + amount
+            ws.cell(row=site_row, column=col_idx, value=new_value)
+            
+            total = 0
+            for m in range(1, 13):
+                m_val = ws.cell(row=site_row, column=month_col[m]).value or 0
+                total += m_val
+            ws.cell(row=site_row, column=18, value=total)
+            
+            budget = ws.cell(row=site_row, column=5).value or 0
+            ws.cell(row=site_row, column=19, value=budget - total)
+            
+            wb.save(MONTHLY_FILE)
+            wb.close()
+            return True, "월별 집계가 업데이트되었습니다."
+        else:
+            wb.close()
+            return False, f"현장 '{site_name}'을(를) 찾을 수 없습니다."
+    
+    except Exception as e:
+        return False, f"월별 집계 업데이트 오류: {str(e)}"
+
+
+def get_all_monthly_summary():
+    """전체 월별 집계 데이터 조회 (피복 + 경비물품)"""
+    result = {
+        '피복': pd.DataFrame(),
+        '경비물품': pd.DataFrame()
+    }
+    
+    if not os.path.exists(MONTHLY_FILE):
+        return result
+    
+    try:
+        result['피복'] = pd.read_excel(MONTHLY_FILE, sheet_name=UNIFORM_SHEET, header=0)
+        result['경비물품'] = pd.read_excel(MONTHLY_FILE, sheet_name=SUPPLY_SHEET, header=0)
+    except Exception as e:
+        print(f"월별 집계 전체 조회 오류: {str(e)}")
+    
+    return result
