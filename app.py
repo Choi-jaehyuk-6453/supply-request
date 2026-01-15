@@ -53,6 +53,13 @@ st.markdown("""
         background: linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%);
         border-right: 1px solid #e0e6ed;
     }
+    [data-testid="stSidebar"] > div:first-child {
+        padding-top: 1rem;
+    }
+    /* 로고 이미지 영역 */
+    [data-testid="stSidebar"] [data-testid="stImage"] {
+        padding: 0 10px;
+    }
     [data-testid="stSidebar"] .stSelectbox > div > div {
         background-color: white;
         border: 1px solid #d0d9e3;
