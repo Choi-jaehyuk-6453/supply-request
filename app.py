@@ -34,8 +34,8 @@ st.markdown("""
     
     /* 메인 헤더 스타일 */
     .main-header {
-        font-size: 1.25rem;
-        font-weight: 700;
+        font-size: 1.5rem;
+        font-weight: 600;
         color: #1a3a6e;
         margin-bottom: 0.5rem;
         padding-bottom: 0.5rem;
