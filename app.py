@@ -246,7 +246,9 @@ if 'pending_app_type' in st.session_state:
     del st.session_state.pending_app_type
 
 with st.sidebar:
-    st.image("attached_assets/미래ABM_LOGO_1768364713952.png", width=140)
+    st.markdown('<div style="padding: 5px 15px 10px 15px;">', unsafe_allow_html=True)
+    st.image("attached_assets/미래ABM_LOGO_1768364713952.png", width=120)
+    st.markdown('</div>', unsafe_allow_html=True)
     st.header("설정")
     
     company = st.selectbox(
