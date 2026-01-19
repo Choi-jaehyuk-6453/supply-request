@@ -57,6 +57,63 @@ class MonthlySummary(Base):
     month_12 = Column(Integer, default=0)
 
 
+class Site(Base):
+    """현장 정보 테이블"""
+    __tablename__ = 'sites'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    address = Column(String(500))
+    contact = Column(String(100))
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime)
+
+
+class Applicant(Base):
+    """신청자 정보 테이블"""
+    __tablename__ = 'applicants'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    contact = Column(String(100))
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime)
+
+
+class SupplyProduct(Base):
+    """경비용품 품목 테이블"""
+    __tablename__ = 'supply_products'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    spec = Column(String(200))
+    unit_price = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime)
+
+
+class UniformProduct(Base):
+    """피복 품목 테이블"""
+    __tablename__ = 'uniform_products'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(200), nullable=False)
+    unit_price = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime)
+
+
+class EmailRecipient(Base):
+    """이메일 수신자 테이블"""
+    __tablename__ = 'email_recipients'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_name = Column(String(200), nullable=False)
+    email = Column(String(200), nullable=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime)
+
+
 def init_db():
     """데이터베이스 테이블 초기화"""
     if engine:
@@ -455,3 +512,503 @@ def migrate_excel_to_db():
     except Exception as e:
         session.close()
         return False, f"마이그레이션 오류: {str(e)}"
+
+
+# ============= 현장 관리 함수 =============
+def get_sites_db():
+    """모든 현장 목록 조회"""
+    session = get_session()
+    if not session:
+        return []
+    try:
+        sites = session.query(Site).all()
+        result = [{"id": s.id, "name": s.name, "address": s.address or "", "contact": s.contact or ""} for s in sites]
+        session.close()
+        return result
+    except Exception:
+        session.close()
+        return []
+
+def add_site_db(name, address, contact):
+    """현장 추가"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        site = Site(name=name, address=address, contact=contact, created_at=datetime.now())
+        session.add(site)
+        session.commit()
+        result = {"id": site.id, "name": site.name, "address": site.address, "contact": site.contact}
+        session.close()
+        return result
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def update_site_db(site_id, name, address, contact):
+    """현장 정보 수정"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        site = session.query(Site).filter(Site.id == site_id).first()
+        if site:
+            site.name = name
+            site.address = address
+            site.contact = contact
+            site.updated_at = datetime.now()
+            session.commit()
+            result = {"id": site.id, "name": site.name, "address": site.address, "contact": site.contact}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def delete_site_db(site_id):
+    """현장 삭제"""
+    session = get_session()
+    if not session:
+        return False
+    try:
+        site = session.query(Site).filter(Site.id == site_id).first()
+        if site:
+            session.delete(site)
+            session.commit()
+            session.close()
+            return True
+        session.close()
+        return False
+    except Exception:
+        session.rollback()
+        session.close()
+        return False
+
+def get_site_by_name_db(name):
+    """현장명으로 조회"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        site = session.query(Site).filter(Site.name == name).first()
+        if site:
+            result = {"id": site.id, "name": site.name, "address": site.address or "", "contact": site.contact or ""}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.close()
+        return None
+
+
+# ============= 신청자 관리 함수 =============
+def get_applicants_db():
+    """모든 신청자 목록 조회"""
+    session = get_session()
+    if not session:
+        return []
+    try:
+        applicants = session.query(Applicant).all()
+        result = [{"id": a.id, "name": a.name, "contact": a.contact or ""} for a in applicants]
+        session.close()
+        return result
+    except Exception:
+        session.close()
+        return []
+
+def add_applicant_db(name, contact):
+    """신청자 추가"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        applicant = Applicant(name=name, contact=contact, created_at=datetime.now())
+        session.add(applicant)
+        session.commit()
+        result = {"id": applicant.id, "name": applicant.name, "contact": applicant.contact}
+        session.close()
+        return result
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def update_applicant_db(applicant_id, name, contact):
+    """신청자 정보 수정"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        applicant = session.query(Applicant).filter(Applicant.id == applicant_id).first()
+        if applicant:
+            applicant.name = name
+            applicant.contact = contact
+            applicant.updated_at = datetime.now()
+            session.commit()
+            result = {"id": applicant.id, "name": applicant.name, "contact": applicant.contact}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def delete_applicant_db(applicant_id):
+    """신청자 삭제"""
+    session = get_session()
+    if not session:
+        return False
+    try:
+        applicant = session.query(Applicant).filter(Applicant.id == applicant_id).first()
+        if applicant:
+            session.delete(applicant)
+            session.commit()
+            session.close()
+            return True
+        session.close()
+        return False
+    except Exception:
+        session.rollback()
+        session.close()
+        return False
+
+def get_applicant_by_name_db(name):
+    """신청자명으로 조회"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        applicant = session.query(Applicant).filter(Applicant.name == name).first()
+        if applicant:
+            result = {"id": applicant.id, "name": applicant.name, "contact": applicant.contact or ""}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.close()
+        return None
+
+
+# ============= 경비용품 품목 관리 함수 =============
+def get_supply_products_db():
+    """모든 경비용품 품목 조회"""
+    session = get_session()
+    if not session:
+        return []
+    try:
+        products = session.query(SupplyProduct).all()
+        result = [{"id": p.id, "name": p.name, "spec": p.spec or "", "unit_price": p.unit_price or 0} for p in products]
+        session.close()
+        return result
+    except Exception:
+        session.close()
+        return []
+
+def add_supply_product_db(name, spec, unit_price):
+    """경비용품 품목 추가"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = SupplyProduct(name=name, spec=spec, unit_price=int(unit_price), created_at=datetime.now())
+        session.add(product)
+        session.commit()
+        result = {"id": product.id, "name": product.name, "spec": product.spec, "unit_price": product.unit_price}
+        session.close()
+        return result
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def update_supply_product_db(product_id, name, spec, unit_price):
+    """경비용품 품목 수정"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = session.query(SupplyProduct).filter(SupplyProduct.id == product_id).first()
+        if product:
+            product.name = name
+            product.spec = spec
+            product.unit_price = int(unit_price)
+            product.updated_at = datetime.now()
+            session.commit()
+            result = {"id": product.id, "name": product.name, "spec": product.spec, "unit_price": product.unit_price}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def delete_supply_product_db(product_id):
+    """경비용품 품목 삭제"""
+    session = get_session()
+    if not session:
+        return False
+    try:
+        product = session.query(SupplyProduct).filter(SupplyProduct.id == product_id).first()
+        if product:
+            session.delete(product)
+            session.commit()
+            session.close()
+            return True
+        session.close()
+        return False
+    except Exception:
+        session.rollback()
+        session.close()
+        return False
+
+def get_supply_product_by_name_db(name):
+    """경비용품 품목명으로 조회"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = session.query(SupplyProduct).filter(SupplyProduct.name == name).first()
+        if product:
+            result = {"id": product.id, "name": product.name, "spec": product.spec or "", "unit_price": product.unit_price or 0}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.close()
+        return None
+
+
+# ============= 피복 품목 관리 함수 =============
+def get_uniform_products_db():
+    """모든 피복 품목 조회"""
+    session = get_session()
+    if not session:
+        return []
+    try:
+        products = session.query(UniformProduct).all()
+        result = [{"id": p.id, "name": p.name, "unit_price": p.unit_price or 0} for p in products]
+        session.close()
+        return result
+    except Exception:
+        session.close()
+        return []
+
+def add_uniform_product_db(name, unit_price):
+    """피복 품목 추가"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = UniformProduct(name=name, unit_price=int(unit_price), created_at=datetime.now())
+        session.add(product)
+        session.commit()
+        result = {"id": product.id, "name": product.name, "unit_price": product.unit_price}
+        session.close()
+        return result
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def update_uniform_product_db(product_id, name, unit_price):
+    """피복 품목 수정"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = session.query(UniformProduct).filter(UniformProduct.id == product_id).first()
+        if product:
+            product.name = name
+            product.unit_price = int(unit_price)
+            product.updated_at = datetime.now()
+            session.commit()
+            result = {"id": product.id, "name": product.name, "unit_price": product.unit_price}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def delete_uniform_product_db(product_id):
+    """피복 품목 삭제"""
+    session = get_session()
+    if not session:
+        return False
+    try:
+        product = session.query(UniformProduct).filter(UniformProduct.id == product_id).first()
+        if product:
+            session.delete(product)
+            session.commit()
+            session.close()
+            return True
+        session.close()
+        return False
+    except Exception:
+        session.rollback()
+        session.close()
+        return False
+
+def get_uniform_product_by_name_db(name):
+    """피복 품목명으로 조회"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        product = session.query(UniformProduct).filter(UniformProduct.name == name).first()
+        if product:
+            result = {"id": product.id, "name": product.name, "unit_price": product.unit_price or 0}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.close()
+        return None
+
+
+# ============= 이메일 수신자 관리 함수 =============
+def get_email_recipients_db():
+    """모든 이메일 수신자 조회"""
+    session = get_session()
+    if not session:
+        return []
+    try:
+        recipients = session.query(EmailRecipient).all()
+        result = [{"id": r.id, "company_name": r.company_name, "email": r.email} for r in recipients]
+        session.close()
+        return result
+    except Exception:
+        session.close()
+        return []
+
+def add_email_recipient_db(company_name, email):
+    """이메일 수신자 추가"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        recipient = EmailRecipient(company_name=company_name, email=email, created_at=datetime.now())
+        session.add(recipient)
+        session.commit()
+        result = {"id": recipient.id, "company_name": recipient.company_name, "email": recipient.email}
+        session.close()
+        return result
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def update_email_recipient_db(recipient_id, company_name, email):
+    """이메일 수신자 수정"""
+    session = get_session()
+    if not session:
+        return None
+    try:
+        recipient = session.query(EmailRecipient).filter(EmailRecipient.id == recipient_id).first()
+        if recipient:
+            recipient.company_name = company_name
+            recipient.email = email
+            recipient.updated_at = datetime.now()
+            session.commit()
+            result = {"id": recipient.id, "company_name": recipient.company_name, "email": recipient.email}
+            session.close()
+            return result
+        session.close()
+        return None
+    except Exception:
+        session.rollback()
+        session.close()
+        return None
+
+def delete_email_recipient_db(recipient_id):
+    """이메일 수신자 삭제"""
+    session = get_session()
+    if not session:
+        return False
+    try:
+        recipient = session.query(EmailRecipient).filter(EmailRecipient.id == recipient_id).first()
+        if recipient:
+            session.delete(recipient)
+            session.commit()
+            session.close()
+            return True
+        session.close()
+        return False
+    except Exception:
+        session.rollback()
+        session.close()
+        return False
+
+
+def migrate_reference_data_to_db():
+    """JSON 파일의 참조 데이터를 DB로 마이그레이션"""
+    import json
+    
+    DATA_FILE = "reference_data.json"
+    if not os.path.exists(DATA_FILE):
+        return True, "마이그레이션할 JSON 파일이 없습니다."
+    
+    session = get_session()
+    if not session:
+        return False, "데이터베이스 연결 오류"
+    
+    try:
+        existing_site = session.query(Site).first()
+        if existing_site:
+            session.close()
+            return True, "이미 참조 데이터가 DB에 있습니다."
+        
+        with open(DATA_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        site_count = 0
+        for site in data.get("sites", []):
+            s = Site(name=site.get("name", ""), address=site.get("address", ""), contact=site.get("contact", ""))
+            session.add(s)
+            site_count += 1
+        
+        applicant_count = 0
+        for app in data.get("applicants", []):
+            a = Applicant(name=app.get("name", ""), contact=app.get("contact", ""))
+            session.add(a)
+            applicant_count += 1
+        
+        supply_count = 0
+        for prod in data.get("supply_products", []):
+            p = SupplyProduct(name=prod.get("name", ""), spec=prod.get("spec", ""), unit_price=prod.get("unit_price", 0))
+            session.add(p)
+            supply_count += 1
+        
+        uniform_count = 0
+        for prod in data.get("uniform_products", []):
+            p = UniformProduct(name=prod.get("name", ""), unit_price=prod.get("unit_price", 0))
+            session.add(p)
+            uniform_count += 1
+        
+        email_count = 0
+        for recip in data.get("email_recipients", []):
+            r = EmailRecipient(company_name=recip.get("company_name", ""), email=recip.get("email", ""))
+            session.add(r)
+            email_count += 1
+        
+        session.commit()
+        session.close()
+        return True, f"참조 데이터 마이그레이션 완료 (현장: {site_count}, 신청자: {applicant_count}, 경비용품: {supply_count}, 피복: {uniform_count}, 이메일: {email_count})"
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return False, f"참조 데이터 마이그레이션 오류: {str(e)}"
