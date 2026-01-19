@@ -6,7 +6,7 @@ import os
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
 from db_handler import (
-    init_db, migrate_excel_to_db,
+    init_db, migrate_excel_to_db, migrate_reference_data_to_db,
     append_to_master_db as append_to_master,
     get_master_data_db as get_master_data,
     get_monthly_summary_db as get_monthly_summary,
@@ -242,6 +242,7 @@ if 'selected_app_type' not in st.session_state:
 if 'db_initialized' not in st.session_state:
     init_db()
     migrate_excel_to_db()
+    migrate_reference_data_to_db()
     st.session_state.db_initialized = True
 
 menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관리자 모드"]
