@@ -2,77 +2,85 @@
 
 ## Overview
 건물관리 회사(미래ABM, 다원PMC)의 경비용품 및 피복 신청을 관리하는 웹 애플리케이션입니다.
-사용자가 신청 내용을 입력하면 PDF 신청서가 생성되고, 이메일로 전송되며, 엑셀 파일에 데이터가 저장됩니다.
+사용자가 신청 내용을 입력하면 PDF 신청서가 생성되고, 이메일로 전송되며, PostgreSQL 데이터베이스에 데이터가 저장됩니다.
 
 ## Features
 1. **PDF 신청서 생성**: 피복신청서 / 경비물품신청서를 각 법인 양식에 맞게 생성
-2. **이메일 전송**: 생성된 PDF를 Gmail SMTP를 통해 지정된 담당자에게 전송
-3. **엑셀 데이터 관리**: 신청 내역을 엑셀 파일에 저장하고 월별 집계
-4. **관리자 모드**: 현장, 신청자, 품목 정보를 미리 등록하여 자동완성 기능 지원
+2. **이메일 전송**: Naver SMTP를 통해 지정된 담당자에게 전송
+3. **PostgreSQL 데이터 관리**: 신청 내역 및 월별 집계를 데이터베이스에 저장 (배포 후에도 유지)
+4. **관리자 모드**: 현장, 신청자, 품목 정보를 미리 등록하여 자동완성 기능 지원 (DB 저장)
 5. **품목 단가 관리**: 경비용품/피복 품목별 단가 등록 및 금액 자동 계산
+6. **임시저장**: 작성 중인 신청서를 임시저장하고 나중에 불러오기
 
 ## Project Architecture
 ```
 ├── app.py                 # 메인 Streamlit 애플리케이션
 ├── pdf_generator.py       # PDF 생성 모듈 (ReportLab)
 ├── email_sender.py        # 이메일 전송 모듈 (SMTP)
-├── excel_handler.py       # 엑셀 데이터 관리 모듈 (pandas, openpyxl)
-├── reference_data.py      # 현장/신청자 참조 데이터 관리 (JSON)
-├── reference_data.json    # 등록된 현장/신청자 데이터 저장
+├── db_handler.py          # PostgreSQL 데이터베이스 관리 모듈 (SQLAlchemy)
+├── reference_data.py      # 현장/신청자 참조 데이터 관리 (DB 래퍼)
+├── draft_manager.py       # 임시저장 관리 모듈
 ├── attached_assets/       # 로고 이미지 및 참고 문서
 │   ├── 미래ABM_LOGO_*.png
 │   └── 다원PMC_LOGO_*.png
 ├── output/                # 생성된 PDF 파일 저장 폴더
-├── fonts/                 # 한글 폰트 폴더
-└── management_db.xlsx     # 신청 데이터 저장 엑셀 파일
+└── fonts/                 # 한글 폰트 폴더
 ```
+
+## Database Schema
+PostgreSQL 테이블 구조:
+- **applications**: 신청 내역 (날짜, 유형, 회사, 현장, 신청자, 품목, 수량, 단가, 금액)
+- **monthly_summary**: 월별 집계 (회사, 현장, 예산, 1-12월 실적)
+- **sites**: 현장 정보 (현장명, 주소, 연락처)
+- **applicants**: 신청자 정보 (이름, 연락처)
+- **supply_products**: 경비용품 품목 (품목명, 규격, 단가)
+- **uniform_products**: 피복 품목 (품목명, 단가)
+- **email_recipients**: 이메일 수신자 (업체명, 이메일)
 
 ## Tech Stack
 - **Frontend**: Streamlit
+- **Database**: PostgreSQL (SQLAlchemy ORM)
 - **PDF Generation**: ReportLab (한글 폰트: NanumGothicCoding)
-- **Data Processing**: pandas, openpyxl
-- **Email**: smtplib (Gmail SMTP)
+- **Data Processing**: pandas
+- **Email**: smtplib (Naver SMTP)
 
 ## Configuration
 
 ### SMTP 설정 (Secrets)
 이메일 전송을 위해 다음 시크릿을 설정해야 합니다:
-- `SMTP_EMAIL`: Gmail 계정 이메일
-- `SMTP_PASSWORD`: Gmail 앱 비밀번호
+- `SMTP_EMAIL`: Naver 계정 이메일
+- `SMTP_PASSWORD`: Naver 앱 비밀번호
 
 ### 이메일 수신처
 - 피복 신청: bbs0747@hanmail.net (경원피복)
 - 경비물품 신청: jay@jaynuri.com (제이누리)
 
-### 네트워크 저장소
-- 데이터는 로컬 `management_db.xlsx` 파일에 저장됩니다
-- 네트워크 경로(`\\192.168.0.100\보안팀\...`)가 접근 가능한 경우 자동으로 동기화됩니다
-- 참고: Replit 환경에서는 Windows 네트워크 공유에 접근할 수 없으므로, 실제 사내망에서 배포 시 동기화가 작동합니다
+### 데이터베이스
+- `DATABASE_URL` 환경변수로 PostgreSQL 연결
+- 앱 시작 시 자동으로 테이블 생성 및 기존 데이터 마이그레이션
 
 ## Recent Changes
+- 2026-01-19: 관리자 모드 데이터 PostgreSQL 마이그레이션
+  - 현장, 신청자, 경비용품, 피복 품목, 이메일 수신자 데이터를 DB에 저장
+  - JSON 파일 기반에서 PostgreSQL 기반으로 변경
+  - 배포 후에도 관리자 모드에서 등록한 데이터가 유지됨
+- 2026-01-19: 월별 집계 및 신청 내역 PostgreSQL 마이그레이션
+  - Excel 파일 기반에서 PostgreSQL 기반으로 변경
+  - 기존 Excel 데이터 자동 마이그레이션
+  - 월별 집계에서 현장 추가/삭제/예산 수정 기능
 - 2026-01-13: 품목 단가 관리 기능 추가
   - 관리자 모드에 경비용품 품목 관리 탭 추가 (품목명, 규격, 단가)
   - 관리자 모드에 피복 품목 관리 탭 추가 (품목명, 단가)
   - 신청서 작성 시 등록된 품목 선택하면 단가 자동 적용
-  - 단가 × 수량 = 금액 계산 및 합계 표시
-  - Excel 저장 시 단가 및 합계금액 포함
 - 2026-01-13: 관리자 모드 및 자동완성 기능 추가
-  - 관리자 모드에서 현장 정보(현장명, 배송지 주소, 현장 연락처) 등록/수정/삭제
-  - 관리자 모드에서 신청자 정보(신청자명, 연락처) 등록/수정/삭제
-  - 신청서 작성 시 등록된 현장/신청자 선택하면 관련 정보 자동 입력
-  - reference_data.py 모듈 및 JSON 기반 데이터 저장
 - 2026-01-13: 초기 시스템 구축
-  - Streamlit UI 구현 (사이드바, 입력 폼, 데이터 에디터)
-  - PDF 생성 기능 구현 (피복신청서, 경비물품신청서)
-  - 이메일 전송 모듈 구현
-  - 엑셀 데이터 저장 및 월별 집계 기능 구현
 
 ## Usage
 1. 사이드바에서 법인명(미래/다원)과 신청 유형(경비물품/피복) 선택
 2. 기본 정보 입력 (현장명, 신청자, 주소 등)
 3. 품목 입력 (Data Editor에서 추가/수정)
 4. "신청서 생성" 버튼 클릭하여 PDF 생성
-5. "데이터 저장" 버튼 클릭하여 엑셀에 저장
+5. "데이터 저장" 버튼 클릭하여 DB에 저장
 6. "이메일 전송" 버튼 클릭하여 담당자에게 발송
 
 ## Running the Application
