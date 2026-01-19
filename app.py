@@ -231,7 +231,7 @@ if 'selected_company' not in st.session_state:
 if 'selected_app_type' not in st.session_state:
     st.session_state.selected_app_type = "경비물품"
 
-menu_options = ["신청서 작성", "데이터 조회", "월별 집계", "관리자 모드"]
+menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관리자 모드"]
 company_options = ["미래", "다원"]
 app_type_options = ["경비물품", "피복"]
 
@@ -566,10 +566,11 @@ if menu == "신청서 작성":
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
     default_remarks = draft_meta.get('remarks', '') if draft_meta else ''
+    remarks_placeholder = "예) 다원피엠씨입니다." if app_type == "경비물품" else "예) 동계상의 00벌, 동계하의 00벌입니다."
     remarks = st.text_area(
         "비고 / 참고사항",
         value=default_remarks,
-        placeholder="예) 동계상의 00벌, 동계하의 00벌입니다."
+        placeholder=remarks_placeholder
     )
     
     st.divider()
@@ -775,7 +776,7 @@ if menu == "신청서 작성":
                         else:
                             st.error(message)
 
-elif menu == "데이터 조회":
+elif menu == "신청내역조회":
     st.subheader("신청 내역 조회")
     
     initialize_excel()
