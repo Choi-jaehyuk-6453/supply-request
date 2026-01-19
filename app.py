@@ -5,7 +5,11 @@ import os
 
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
-from excel_handler import append_to_master, get_master_data, get_monthly_summary, initialize_excel, get_monthly_summary_data, get_all_monthly_summary
+from excel_handler import (
+    append_to_master, get_master_data, get_monthly_summary, initialize_excel, 
+    get_monthly_summary_data, get_all_monthly_summary,
+    add_monthly_summary_site, delete_monthly_summary_site, update_monthly_summary_budget
+)
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
     add_applicant, update_applicant, delete_applicant, get_site_by_name, get_applicant_by_name,
@@ -953,65 +957,142 @@ elif menu == "신청내역조회":
 elif menu == "월별 집계":
     st.subheader("월별 비용 집계")
     
-    summary_data = get_all_monthly_summary()
+    summary_tabs = st.tabs(["집계 현황", "현장 관리"])
     
-    summary_type = st.radio(
-        "집계 유형",
-        options=["피복", "경비물품"],
-        horizontal=True,
-        key="summary_type_radio"
-    )
-    
-    company_filter = st.selectbox(
-        "법인 선택",
-        options=["전체", "미래", "다원"],
-        key="summary_company_filter"
-    )
-    
-    sheet_key = '피복' if summary_type == '피복' else '경비물품'
-    df_summary = summary_data.get(sheet_key, pd.DataFrame())
-    
-    if not df_summary.empty:
-        if company_filter != "전체":
-            df_summary = df_summary[df_summary['구분'] == company_filter]
+    with summary_tabs[0]:
+        summary_data = get_all_monthly_summary()
         
-        display_cols = ['구분', '현장명', '예산', '1월', '2월', '3월', '4월', '5월', '6월', 
-                       '7월', '8월', '9월', '10월', '11월', '12월', '합계', '가용']
-        available_cols = [col for col in display_cols if col in df_summary.columns]
-        df_display = df_summary[available_cols].copy()
-        
-        for col in df_display.columns:
-            if col not in ['구분', '현장명']:
-                df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).astype(int)
-        
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "예산": st.column_config.NumberColumn("예산", format="%d"),
-                "합계": st.column_config.NumberColumn("합계", format="%d"),
-                "가용": st.column_config.NumberColumn("가용", format="%d"),
-            }
+        summary_type = st.radio(
+            "집계 유형",
+            options=["피복", "경비물품"],
+            horizontal=True,
+            key="summary_type_radio"
         )
+        
+        company_filter = st.selectbox(
+            "법인 선택",
+            options=["전체", "미래", "다원"],
+            key="summary_company_filter"
+        )
+        
+        sheet_key = '피복' if summary_type == '피복' else '경비물품'
+        df_summary = summary_data.get(sheet_key, pd.DataFrame())
+        
+        if not df_summary.empty:
+            if company_filter != "전체":
+                df_summary = df_summary[df_summary['구분'] == company_filter]
+            
+            display_cols = ['구분', '현장명', '예산', '1월', '2월', '3월', '4월', '5월', '6월', 
+                           '7월', '8월', '9월', '10월', '11월', '12월', '합계', '가용']
+            available_cols = [col for col in display_cols if col in df_summary.columns]
+            df_display = df_summary[available_cols].copy()
+            
+            for col in df_display.columns:
+                if col not in ['구분', '현장명']:
+                    df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).astype(int)
+            
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "예산": st.column_config.NumberColumn("예산", format="%d"),
+                    "합계": st.column_config.NumberColumn("합계", format="%d"),
+                    "가용": st.column_config.NumberColumn("가용", format="%d"),
+                }
+            )
+            
+            st.divider()
+            
+            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            with col_m1:
+                total_budget = df_display['예산'].sum() if '예산' in df_display.columns else 0
+                st.metric("총 예산", f"{total_budget:,}원")
+            with col_m2:
+                total_used = df_display['합계'].sum() if '합계' in df_display.columns else 0
+                st.metric("총 사용", f"{total_used:,}원")
+            with col_m3:
+                total_available = df_display['가용'].sum() if '가용' in df_display.columns else 0
+                st.metric("총 가용", f"{total_available:,}원")
+            with col_m4:
+                usage_rate = (total_used / total_budget * 100) if total_budget > 0 else 0
+                st.metric("사용률", f"{usage_rate:.1f}%")
+        else:
+            st.info("집계할 데이터가 없습니다.")
+    
+    with summary_tabs[1]:
+        st.markdown("### 현장 추가/삭제/예산 수정")
+        
+        st.markdown("#### 새 현장 추가")
+        with st.form("add_summary_site_form", clear_on_submit=True):
+            col_add1, col_add2 = st.columns(2)
+            with col_add1:
+                new_site_company = st.selectbox("법인", options=["미래", "다원"], key="new_summary_company")
+                new_site_name = st.text_input("현장명", placeholder="예: 신월시영")
+            with col_add2:
+                new_uniform_budget = st.number_input("피복 예산", min_value=0, value=0, step=100000, key="new_uniform_budget")
+                new_supply_budget = st.number_input("경비물품 예산", min_value=0, value=0, step=100000, key="new_supply_budget")
+            
+            if st.form_submit_button("현장 추가", type="primary"):
+                if new_site_name:
+                    success, msg = add_monthly_summary_site(new_site_name, new_site_company, new_uniform_budget, new_supply_budget)
+                    if success:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                else:
+                    st.error("현장명을 입력해주세요.")
         
         st.divider()
         
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        with col_m1:
-            total_budget = df_display['예산'].sum() if '예산' in df_display.columns else 0
-            st.metric("총 예산", f"{total_budget:,}원")
-        with col_m2:
-            total_used = df_display['합계'].sum() if '합계' in df_display.columns else 0
-            st.metric("총 사용", f"{total_used:,}원")
-        with col_m3:
-            total_available = df_display['가용'].sum() if '가용' in df_display.columns else 0
-            st.metric("총 가용", f"{total_available:,}원")
-        with col_m4:
-            usage_rate = (total_used / total_budget * 100) if total_budget > 0 else 0
-            st.metric("사용률", f"{usage_rate:.1f}%")
-    else:
-        st.info("집계할 데이터가 없습니다.")
+        st.markdown("#### 현장 삭제")
+        summary_data_for_delete = get_all_monthly_summary()
+        df_sites = summary_data_for_delete.get('피복', pd.DataFrame())
+        
+        if not df_sites.empty:
+            site_list = df_sites[['구분', '현장명']].drop_duplicates()
+            site_options = [f"{row['구분']} - {row['현장명']}" for _, row in site_list.iterrows()]
+            
+            with st.form("delete_summary_site_form"):
+                selected_site_to_delete = st.selectbox("삭제할 현장 선택", options=site_options, key="delete_site_select")
+                
+                if st.form_submit_button("현장 삭제", type="secondary"):
+                    if selected_site_to_delete:
+                        parts = selected_site_to_delete.split(" - ", 1)
+                        del_company = parts[0]
+                        del_site = parts[1]
+                        success, msg = delete_monthly_summary_site(del_site, del_company)
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+        else:
+            st.info("삭제할 현장이 없습니다.")
+        
+        st.divider()
+        
+        st.markdown("#### 예산 수정")
+        if not df_sites.empty:
+            with st.form("update_budget_form"):
+                selected_site_for_budget = st.selectbox("현장 선택", options=site_options, key="budget_site_select")
+                budget_type = st.radio("수정 유형", options=["피복", "경비물품"], horizontal=True, key="budget_type_radio")
+                new_budget = st.number_input("새 예산", min_value=0, value=0, step=100000, key="new_budget_value")
+                
+                if st.form_submit_button("예산 수정", type="primary"):
+                    if selected_site_for_budget:
+                        parts = selected_site_for_budget.split(" - ", 1)
+                        budget_company = parts[0]
+                        budget_site = parts[1]
+                        success, msg = update_monthly_summary_budget(budget_site, budget_company, budget_type, new_budget)
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
+        else:
+            st.info("예산을 수정할 현장이 없습니다.")
 
 elif menu == "관리자 모드":
     st.subheader("관리자 모드")

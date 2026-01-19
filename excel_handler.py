@@ -279,3 +279,102 @@ def get_all_monthly_summary():
         print(f"월별 집계 전체 조회 오류: {str(e)}")
     
     return result
+
+
+def add_monthly_summary_site(site_name, company, uniform_budget, supply_budget):
+    """월별 집계에 새 현장 추가"""
+    if not os.path.exists(MONTHLY_FILE):
+        return False, "월별 집계 파일이 존재하지 않습니다."
+    
+    try:
+        df_uniform = pd.read_excel(MONTHLY_FILE, sheet_name=UNIFORM_SHEET)
+        df_supply = pd.read_excel(MONTHLY_FILE, sheet_name=SUPPLY_SHEET)
+        
+        # 중복 체크
+        if ((df_uniform['구분'] == company) & (df_uniform['현장명'] == site_name)).any():
+            return False, f"'{site_name}'은(는) 이미 등록된 현장입니다."
+        
+        next_num = max(df_uniform['연번'].max(), df_supply['연번'].max()) + 1 if not df_uniform.empty else 1
+        
+        new_row_uniform = {
+            '연번': next_num, '구분': company, '연번.1': next_num, '현장명': site_name,
+            '예산': uniform_budget,
+            '1월': 0, '2월': 0, '3월': 0, '4월': 0, '5월': 0, '6월': 0,
+            '7월': 0, '8월': 0, '9월': 0, '10월': 0, '11월': 0, '12월': 0,
+            '합계': 0, '가용': uniform_budget
+        }
+        
+        new_row_supply = {
+            '연번': next_num, '구분': company, '연번.1': next_num, '현장명': site_name,
+            '예산': supply_budget,
+            '1월': 0, '2월': 0, '3월': 0, '4월': 0, '5월': 0, '6월': 0,
+            '7월': 0, '8월': 0, '9월': 0, '10월': 0, '11월': 0, '12월': 0,
+            '합계': 0, '가용': supply_budget
+        }
+        
+        df_uniform = pd.concat([df_uniform, pd.DataFrame([new_row_uniform])], ignore_index=True)
+        df_supply = pd.concat([df_supply, pd.DataFrame([new_row_supply])], ignore_index=True)
+        
+        with pd.ExcelWriter(MONTHLY_FILE, engine='openpyxl') as writer:
+            df_uniform.to_excel(writer, sheet_name=UNIFORM_SHEET, index=False)
+            df_supply.to_excel(writer, sheet_name=SUPPLY_SHEET, index=False)
+        
+        return True, f"'{site_name}' 현장이 추가되었습니다."
+    except Exception as e:
+        return False, f"현장 추가 오류: {str(e)}"
+
+
+def delete_monthly_summary_site(site_name, company):
+    """월별 집계에서 현장 삭제"""
+    if not os.path.exists(MONTHLY_FILE):
+        return False, "월별 집계 파일이 존재하지 않습니다."
+    
+    try:
+        df_uniform = pd.read_excel(MONTHLY_FILE, sheet_name=UNIFORM_SHEET)
+        df_supply = pd.read_excel(MONTHLY_FILE, sheet_name=SUPPLY_SHEET)
+        
+        df_uniform = df_uniform[~((df_uniform['구분'] == company) & (df_uniform['현장명'] == site_name))]
+        df_supply = df_supply[~((df_supply['구분'] == company) & (df_supply['현장명'] == site_name))]
+        
+        with pd.ExcelWriter(MONTHLY_FILE, engine='openpyxl') as writer:
+            df_uniform.to_excel(writer, sheet_name=UNIFORM_SHEET, index=False)
+            df_supply.to_excel(writer, sheet_name=SUPPLY_SHEET, index=False)
+        
+        return True, f"'{site_name}' 현장이 삭제되었습니다."
+    except Exception as e:
+        return False, f"현장 삭제 오류: {str(e)}"
+
+
+def update_monthly_summary_budget(site_name, company, app_type, new_budget):
+    """월별 집계에서 현장 예산 수정"""
+    if not os.path.exists(MONTHLY_FILE):
+        return False, "월별 집계 파일이 존재하지 않습니다."
+    
+    try:
+        sheet_name = UNIFORM_SHEET if app_type == '피복' else SUPPLY_SHEET
+        
+        df_uniform = pd.read_excel(MONTHLY_FILE, sheet_name=UNIFORM_SHEET)
+        df_supply = pd.read_excel(MONTHLY_FILE, sheet_name=SUPPLY_SHEET)
+        
+        if app_type == '피복':
+            mask = (df_uniform['구분'] == company) & (df_uniform['현장명'] == site_name)
+            if not mask.any():
+                return False, f"'{site_name}'을(를) 찾을 수 없습니다."
+            df_uniform.loc[mask, '예산'] = new_budget
+            total = df_uniform.loc[mask, '합계'].values[0]
+            df_uniform.loc[mask, '가용'] = new_budget - total
+        else:
+            mask = (df_supply['구분'] == company) & (df_supply['현장명'] == site_name)
+            if not mask.any():
+                return False, f"'{site_name}'을(를) 찾을 수 없습니다."
+            df_supply.loc[mask, '예산'] = new_budget
+            total = df_supply.loc[mask, '합계'].values[0]
+            df_supply.loc[mask, '가용'] = new_budget - total
+        
+        with pd.ExcelWriter(MONTHLY_FILE, engine='openpyxl') as writer:
+            df_uniform.to_excel(writer, sheet_name=UNIFORM_SHEET, index=False)
+            df_supply.to_excel(writer, sheet_name=SUPPLY_SHEET, index=False)
+        
+        return True, f"'{site_name}'의 {app_type} 예산이 {new_budget:,}원으로 수정되었습니다."
+    except Exception as e:
+        return False, f"예산 수정 오류: {str(e)}"
