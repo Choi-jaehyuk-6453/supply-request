@@ -984,15 +984,16 @@ elif menu == "월별 집계":
             if col not in ['구분', '현장명']:
                 df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).astype(int)
         
+        number_config = {}
+        for col in df_display.columns:
+            if col not in ['구분', '현장명']:
+                number_config[col] = st.column_config.NumberColumn(col, format="%,d")
+        
         st.dataframe(
             df_display,
             use_container_width=True,
             hide_index=True,
-            column_config={
-                "예산": st.column_config.NumberColumn("예산", format="%d"),
-                "합계": st.column_config.NumberColumn("합계", format="%d"),
-                "가용": st.column_config.NumberColumn("가용", format="%d"),
-            }
+            column_config=number_config
         )
         
         st.divider()
