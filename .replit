@@ -1,11 +1,11 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "postgresql-16"]
 [deployment]
 deploymentTarget = "autoscale"
 run = ["streamlit", "run", "app.py", "--server.port", "5000"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["freetype", "glibcLocales", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "tcl", "tk", "zlib", "nanum-gothic-coding"]
+packages = ["freetype", "glibcLocales", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "nanum-gothic-coding", "openjpeg", "tcl", "tk", "zlib"]
 
 [workflows]
 runButton = "Project"

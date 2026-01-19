@@ -380,45 +380,63 @@ def migrate_excel_to_db():
                 df_uniform = pd.read_excel(MONTHLY_FILE, sheet_name='피복')
                 df_supply = pd.read_excel(MONTHLY_FILE, sheet_name='경비물품 등')
                 
+                def safe_int(val):
+                    if pd.isna(val) or val is None:
+                        return 0
+                    try:
+                        return int(val)
+                    except (ValueError, TypeError):
+                        return 0
+                
                 for _, row in df_uniform.iterrows():
+                    company_val = row.get('구분', '')
+                    site_val = row.get('현장명', '')
+                    if pd.isna(company_val) or pd.isna(site_val) or not company_val or not site_val:
+                        continue
+                    
                     summary = MonthlySummary(
-                        company=row.get('구분', ''),
-                        site_name=row.get('현장명', ''),
+                        company=str(company_val),
+                        site_name=str(site_val),
                         app_type='피복',
-                        budget=int(row.get('예산', 0) or 0),
-                        month_01=int(row.get('1월', 0) or 0),
-                        month_02=int(row.get('2월', 0) or 0),
-                        month_03=int(row.get('3월', 0) or 0),
-                        month_04=int(row.get('4월', 0) or 0),
-                        month_05=int(row.get('5월', 0) or 0),
-                        month_06=int(row.get('6월', 0) or 0),
-                        month_07=int(row.get('7월', 0) or 0),
-                        month_08=int(row.get('8월', 0) or 0),
-                        month_09=int(row.get('9월', 0) or 0),
-                        month_10=int(row.get('10월', 0) or 0),
-                        month_11=int(row.get('11월', 0) or 0),
-                        month_12=int(row.get('12월', 0) or 0)
+                        budget=safe_int(row.get('예산', 0)),
+                        month_01=safe_int(row.get('1월', 0)),
+                        month_02=safe_int(row.get('2월', 0)),
+                        month_03=safe_int(row.get('3월', 0)),
+                        month_04=safe_int(row.get('4월', 0)),
+                        month_05=safe_int(row.get('5월', 0)),
+                        month_06=safe_int(row.get('6월', 0)),
+                        month_07=safe_int(row.get('7월', 0)),
+                        month_08=safe_int(row.get('8월', 0)),
+                        month_09=safe_int(row.get('9월', 0)),
+                        month_10=safe_int(row.get('10월', 0)),
+                        month_11=safe_int(row.get('11월', 0)),
+                        month_12=safe_int(row.get('12월', 0))
                     )
                     session.add(summary)
                 
                 for _, row in df_supply.iterrows():
+                    company_val = row.get('구분', '')
+                    site_val = row.get('현장명', '')
+                    if pd.isna(company_val) or pd.isna(site_val) or not company_val or not site_val:
+                        continue
+                    
                     summary = MonthlySummary(
-                        company=row.get('구분', ''),
-                        site_name=row.get('현장명', ''),
+                        company=str(company_val),
+                        site_name=str(site_val),
                         app_type='경비물품',
-                        budget=int(row.get('예산', 0) or 0),
-                        month_01=int(row.get('1월', 0) or 0),
-                        month_02=int(row.get('2월', 0) or 0),
-                        month_03=int(row.get('3월', 0) or 0),
-                        month_04=int(row.get('4월', 0) or 0),
-                        month_05=int(row.get('5월', 0) or 0),
-                        month_06=int(row.get('6월', 0) or 0),
-                        month_07=int(row.get('7월', 0) or 0),
-                        month_08=int(row.get('8월', 0) or 0),
-                        month_09=int(row.get('9월', 0) or 0),
-                        month_10=int(row.get('10월', 0) or 0),
-                        month_11=int(row.get('11월', 0) or 0),
-                        month_12=int(row.get('12월', 0) or 0)
+                        budget=safe_int(row.get('예산', 0)),
+                        month_01=safe_int(row.get('1월', 0)),
+                        month_02=safe_int(row.get('2월', 0)),
+                        month_03=safe_int(row.get('3월', 0)),
+                        month_04=safe_int(row.get('4월', 0)),
+                        month_05=safe_int(row.get('5월', 0)),
+                        month_06=safe_int(row.get('6월', 0)),
+                        month_07=safe_int(row.get('7월', 0)),
+                        month_08=safe_int(row.get('8월', 0)),
+                        month_09=safe_int(row.get('9월', 0)),
+                        month_10=safe_int(row.get('10월', 0)),
+                        month_11=safe_int(row.get('11월', 0)),
+                        month_12=safe_int(row.get('12월', 0))
                     )
                     session.add(summary)
                 

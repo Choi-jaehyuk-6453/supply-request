@@ -5,10 +5,15 @@ import os
 
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
-from excel_handler import (
-    append_to_master, get_master_data, get_monthly_summary, initialize_excel, 
-    get_monthly_summary_data, get_all_monthly_summary,
-    add_monthly_summary_site, delete_monthly_summary_site, update_monthly_summary_budget
+from db_handler import (
+    init_db, migrate_excel_to_db,
+    append_to_master_db as append_to_master,
+    get_master_data_db as get_master_data,
+    get_monthly_summary_db as get_monthly_summary,
+    get_all_monthly_summary_db as get_all_monthly_summary,
+    add_monthly_summary_site_db as add_monthly_summary_site,
+    delete_monthly_summary_site_db as delete_monthly_summary_site,
+    update_monthly_summary_budget_db as update_monthly_summary_budget
 )
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
@@ -234,6 +239,10 @@ if 'selected_company' not in st.session_state:
     st.session_state.selected_company = "미래"
 if 'selected_app_type' not in st.session_state:
     st.session_state.selected_app_type = "경비물품"
+if 'db_initialized' not in st.session_state:
+    init_db()
+    migrate_excel_to_db()
+    st.session_state.db_initialized = True
 
 menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관리자 모드"]
 company_options = ["미래", "다원"]
@@ -783,7 +792,6 @@ if menu == "신청서 작성":
 elif menu == "신청내역조회":
     st.subheader("신청 내역 조회")
     
-    initialize_excel()
     df = get_master_data()
     
     if not df.empty:
