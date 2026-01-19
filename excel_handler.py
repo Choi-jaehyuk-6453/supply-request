@@ -95,7 +95,8 @@ def append_to_master(data, app_type, items):
         
         update_monthly_summary()
         
-        date_obj = datetime.strptime(date_str.replace('.', '-').replace(' ', ''), '%Y-%m-%d') if '.' in date_str else datetime.strptime(date_str, '%Y-%m-%d')
+        date_cleaned = date_str.replace('.', '-').replace(' ', '').rstrip('-')
+        date_obj = datetime.strptime(date_cleaned, '%Y-%m-%d')
         month = date_obj.month
         total_amount = sum(item.get('quantity', 1) * item.get('unit_price', 0) for item in items)
         if total_amount > 0:

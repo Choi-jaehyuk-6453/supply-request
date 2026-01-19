@@ -569,7 +569,7 @@ if menu == "신청서 작성":
     remarks = st.text_area(
         "비고 / 참고사항",
         value=default_remarks,
-        placeholder="추가 참고사항을 입력하세요"
+        placeholder="예) 동계상의 00벌, 동계하의 00벌입니다."
     )
     
     st.divider()
