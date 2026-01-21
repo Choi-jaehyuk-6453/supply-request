@@ -186,6 +186,63 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
         return False, f"데이터 저장 중 오류가 발생했습니다: {str(e)}"
 
 
+def delete_application_db(date_str, site_name, applicant, app_type, company):
+    """신청 내역 삭제 및 월별 집계 업데이트 (단일 트랜잭션)"""
+    session = get_session()
+    if not session:
+        return False, "데이터베이스 연결 오류"
+    
+    try:
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        applications = session.query(Application).filter(
+            Application.date == date_obj,
+            Application.site_name == site_name,
+            Application.applicant == applicant,
+            Application.app_type == app_type,
+            Application.company == company
+        ).all()
+        
+        if not applications:
+            session.close()
+            return False, "삭제할 데이터를 찾을 수 없습니다."
+        
+        total_amount = sum(app.total_amount for app in applications)
+        month = date_obj.month
+        app_count = len(applications)
+        
+        for app in applications:
+            session.delete(app)
+        
+        if total_amount > 0:
+            summary = session.query(MonthlySummary).filter_by(
+                company=company,
+                site_name=site_name,
+                app_type=app_type
+            ).first()
+            
+            if summary:
+                month_cols = {
+                    1: 'month_01', 2: 'month_02', 3: 'month_03', 4: 'month_04',
+                    5: 'month_05', 6: 'month_06', 7: 'month_07', 8: 'month_08',
+                    9: 'month_09', 10: 'month_10', 11: 'month_11', 12: 'month_12'
+                }
+                col_name = month_cols.get(month)
+                if col_name:
+                    current_value = getattr(summary, col_name, 0) or 0
+                    new_value = max(0, current_value - total_amount)
+                    setattr(summary, col_name, new_value)
+        
+        session.commit()
+        session.close()
+        return True, f"{app_count}건의 신청 내역이 삭제되었습니다."
+    
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return False, f"삭제 중 오류가 발생했습니다: {str(e)}"
+
+
 def get_master_data_db():
     """신청 내역 조회"""
     session = get_session()

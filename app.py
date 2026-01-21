@@ -13,7 +13,8 @@ from db_handler import (
     get_all_monthly_summary_db as get_all_monthly_summary,
     add_monthly_summary_site_db as add_monthly_summary_site,
     delete_monthly_summary_site_db as delete_monthly_summary_site,
-    update_monthly_summary_budget_db as update_monthly_summary_budget
+    update_monthly_summary_budget_db as update_monthly_summary_budget,
+    delete_application_db as delete_application
 )
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
@@ -909,7 +910,7 @@ elif menu == "신청내역조회":
                 st.metric("현장 수", f"{unique_sites}개")
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
-            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4])
+            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4])
             header_cols[0].markdown("**날짜**")
             header_cols[1].markdown("**구분**")
             header_cols[2].markdown("**현장명**")
@@ -917,11 +918,12 @@ elif menu == "신청내역조회":
             header_cols[4].markdown("**품목**")
             header_cols[5].markdown("**품목수**")
             header_cols[6].markdown("**재신청**")
+            header_cols[7].markdown("**삭제**")
             
             st.divider()
             
             for idx, row in grouped.iterrows():
-                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4])
+                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4])
                 row_cols[0].write(row['날짜_str'])
                 row_cols[1].write(row['구분'])
                 row_cols[2].write(row['현장명'])
@@ -930,6 +932,22 @@ elif menu == "신청내역조회":
                 row_cols[5].write(f"{row['품목수']}개")
                 
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
+                del_key = f"del_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
+                
+                if row_cols[7].button("🗑️", key=del_key):
+                    success, msg = delete_application(
+                        row['날짜_str'], 
+                        row['현장명'], 
+                        row['신청자'], 
+                        row['구분'],
+                        row['법인명']
+                    )
+                    if success:
+                        st.success(msg)
+                        st.rerun()
+                    else:
+                        st.error(msg)
+                
                 if row_cols[6].button("✏️", key=btn_key):
                     display_df_temp = filtered_df.copy()
                     display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
