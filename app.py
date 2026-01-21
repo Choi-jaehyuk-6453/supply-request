@@ -681,7 +681,14 @@ if menu == "신청서 작성":
                     st.session_state.form_data = form_data
                     st.session_state.items = items
                     
-                    success, message = append_to_master(form_data, app_type, items)
+                    success, message = append_to_master(
+                        form_data.get('application_date', ''),
+                        app_type,
+                        form_data.get('company', ''),
+                        form_data.get('site_name', ''),
+                        form_data.get('applicant', ''),
+                        items
+                    )
                     if success:
                         st.success(f"PDF가 생성되고 데이터가 저장되었습니다: {os.path.basename(pdf_path)}")
                         if st.session_state.loaded_draft_id:
