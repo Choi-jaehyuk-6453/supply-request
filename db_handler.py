@@ -144,32 +144,49 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
         total_amount = 0
         for item in items:
             if app_type == '피복':
-                product_name = item.get('product', '')
-                spec = ''
-                quantity = item.get('quantity', 1)
-                unit_price = item.get('unit_price', 0)
+                products = item.get('products', [])
+                worker = item.get('worker', '')
+                for product in products:
+                    product_name = product.get('name', '')
+                    quantity = product.get('quantity', 1)
+                    unit_price = product.get('unit_price', 0)
+                    item_total = quantity * unit_price
+                    total_amount += item_total
+                    
+                    application = Application(
+                        date=date_obj,
+                        app_type=app_type,
+                        company=company,
+                        site_name=site_name,
+                        applicant=applicant,
+                        product_name=product_name,
+                        spec=worker,
+                        quantity=quantity,
+                        unit_price=unit_price,
+                        total_amount=item_total
+                    )
+                    session.add(application)
             else:
                 product_name = item.get('name', '')
                 spec = item.get('spec', '')
                 quantity = item.get('quantity', 1)
                 unit_price = item.get('unit_price', 0)
-            
-            item_total = quantity * unit_price
-            total_amount += item_total
-            
-            application = Application(
-                date=date_obj,
-                app_type=app_type,
-                company=company,
-                site_name=site_name,
-                applicant=applicant,
-                product_name=product_name,
-                spec=spec,
-                quantity=quantity,
-                unit_price=unit_price,
-                total_amount=item_total
-            )
-            session.add(application)
+                item_total = quantity * unit_price
+                total_amount += item_total
+                
+                application = Application(
+                    date=date_obj,
+                    app_type=app_type,
+                    company=company,
+                    site_name=site_name,
+                    applicant=applicant,
+                    product_name=product_name,
+                    spec=spec,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    total_amount=item_total
+                )
+                session.add(application)
         
         session.commit()
         
@@ -345,7 +362,7 @@ def get_all_monthly_summary_db():
 
 
 def update_monthly_summary_db(site_name, company, app_type, month, amount):
-    """월별 집계 업데이트"""
+    """월별 집계 업데이트 (현장이 없으면 자동 생성)"""
     session = get_session()
     if not session:
         return False, "데이터베이스 연결 오류"
@@ -357,24 +374,32 @@ def update_monthly_summary_db(site_name, company, app_type, month, amount):
             app_type=app_type
         ).first()
         
+        month_cols = {
+            1: 'month_01', 2: 'month_02', 3: 'month_03', 4: 'month_04',
+            5: 'month_05', 6: 'month_06', 7: 'month_07', 8: 'month_08',
+            9: 'month_09', 10: 'month_10', 11: 'month_11', 12: 'month_12'
+        }
+        
         if summary:
-            month_cols = {
-                1: 'month_01', 2: 'month_02', 3: 'month_03', 4: 'month_04',
-                5: 'month_05', 6: 'month_06', 7: 'month_07', 8: 'month_08',
-                9: 'month_09', 10: 'month_10', 11: 'month_11', 12: 'month_12'
-            }
-            
             col_name = month_cols.get(month)
             if col_name:
                 current_value = getattr(summary, col_name, 0) or 0
                 setattr(summary, col_name, current_value + amount)
-            
-            session.commit()
-            session.close()
-            return True, "월별 집계가 업데이트되었습니다."
         else:
-            session.close()
-            return False, f"현장 '{site_name}'을(를) 찾을 수 없습니다."
+            summary = MonthlySummary(
+                company=company,
+                site_name=site_name,
+                app_type=app_type,
+                budget=0
+            )
+            col_name = month_cols.get(month)
+            if col_name:
+                setattr(summary, col_name, amount)
+            session.add(summary)
+        
+        session.commit()
+        session.close()
+        return True, "월별 집계가 업데이트되었습니다."
     
     except Exception as e:
         session.rollback()
