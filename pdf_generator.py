@@ -59,9 +59,10 @@ def find_korean_bold_font():
     return None
 
 FONT_REGISTERED = False
+BOLD_FONT_AVAILABLE = False
 
 def register_korean_fonts():
-    global FONT_REGISTERED
+    global FONT_REGISTERED, BOLD_FONT_AVAILABLE
     if FONT_REGISTERED:
         return
     
@@ -77,6 +78,7 @@ def register_korean_fonts():
     if bold_font_path:
         try:
             pdfmetrics.registerFont(TTFont('NanumGothicBold', bold_font_path))
+            BOLD_FONT_AVAILABLE = True
         except Exception as e:
             print(f"Bold font registration error: {e}")
     
@@ -85,7 +87,10 @@ def register_korean_fonts():
 register_korean_fonts()
 
 def get_korean_style(name, font_size=10, alignment=TA_LEFT, bold=False, text_color=None):
-    font_name = 'NanumGothicBold' if bold else 'NanumGothic'
+    if bold and BOLD_FONT_AVAILABLE:
+        font_name = 'NanumGothicBold'
+    else:
+        font_name = 'NanumGothic'
     style = ParagraphStyle(
         name=name,
         fontName=font_name,
