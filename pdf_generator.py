@@ -13,7 +13,11 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 import subprocess
 
 def find_korean_font():
-    """시스템에서 한글 폰트 경로 찾기"""
+    """한글 폰트 경로 찾기 - 프로젝트 내 폰트 우선 사용"""
+    project_font = os.path.join(os.path.dirname(__file__), 'fonts', 'NanumGothicCoding.ttf')
+    if os.path.exists(project_font):
+        return project_font
+    
     try:
         result = subprocess.run(['fc-list', ':lang=ko'], capture_output=True, text=True, timeout=5)
         lines = result.stdout.strip().split('\n')
@@ -30,16 +34,14 @@ def find_korean_font():
     except Exception:
         pass
     
-    possible_paths = [
-        "/nix/store/v0kly1d5gjbg7wffgsmha76qd785a0yv-nanum-gothic-coding-2.5/share/fonts/NanumGothicCoding/NanumGothicCoding.ttf",
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
     return None
 
 def find_korean_bold_font():
-    """시스템에서 한글 볼드 폰트 경로 찾기"""
+    """한글 볼드 폰트 경로 찾기 - 프로젝트 내 폰트 우선 사용"""
+    project_font = os.path.join(os.path.dirname(__file__), 'fonts', 'NanumGothicCoding-Bold.ttf')
+    if os.path.exists(project_font):
+        return project_font
+    
     try:
         result = subprocess.run(['fc-list', ':lang=ko'], capture_output=True, text=True, timeout=5)
         lines = result.stdout.strip().split('\n')
@@ -51,12 +53,6 @@ def find_korean_bold_font():
     except Exception:
         pass
     
-    possible_paths = [
-        "/nix/store/v0kly1d5gjbg7wffgsmha76qd785a0yv-nanum-gothic-coding-2.5/share/fonts/NanumGothicCoding/NanumGothicCoding-Bold.ttf",
-    ]
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
     return None
 
 FONT_REGISTERED = False
