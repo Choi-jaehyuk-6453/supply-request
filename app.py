@@ -1012,7 +1012,7 @@ elif menu == "신청내역조회":
                         'address': '',
                         'contact': '',
                         'remarks': '',
-                        'application_date': row['날짜_str']
+                        'application_date': date.today().strftime('%Y-%m-%d')
                     }
                     
                     st.session_state.loaded_draft_id = None
