@@ -6,6 +6,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.pdfmetrics import registerFontFamily
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 
@@ -81,6 +82,22 @@ def register_korean_fonts():
             BOLD_FONT_AVAILABLE = True
         except Exception as e:
             print(f"Bold font registration error: {e}")
+    
+    try:
+        if BOLD_FONT_AVAILABLE:
+            registerFontFamily('NanumGothic', 
+                               normal='NanumGothic', 
+                               bold='NanumGothicBold',
+                               italic='NanumGothic',
+                               boldItalic='NanumGothicBold')
+        else:
+            registerFontFamily('NanumGothic', 
+                               normal='NanumGothic', 
+                               bold='NanumGothic',
+                               italic='NanumGothic',
+                               boldItalic='NanumGothic')
+    except Exception as e:
+        print(f"Font family registration error: {e}")
     
     FONT_REGISTERED = True
 
