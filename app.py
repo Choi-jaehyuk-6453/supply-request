@@ -314,6 +314,8 @@ if menu == "신청서 작성":
                                 converted_items = []
                                 for item in loaded_items:
                                     if '품목1' in item:
+                                        if 'product_count' not in item:
+                                            item['product_count'] = 3
                                         converted_items.append(item)
                                     else:
                                         converted_items.append({
@@ -328,7 +330,8 @@ if menu == "신청서 작성":
                                             '품목2': '',
                                             '수량2': 0,
                                             '품목3': '',
-                                            '수량3': 0
+                                            '수량3': 0,
+                                            'product_count': 3
                                         })
                                 st.session_state.uniform_items = converted_items
                             st.session_state.draft_metadata = {
@@ -545,15 +548,19 @@ if menu == "신청서 작성":
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
                 {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
-                 '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0}
+                 '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
             ]
+        
+        for item in st.session_state.uniform_items:
+            if 'product_count' not in item:
+                item['product_count'] = 3
         
         col_add, col_del = st.columns([1, 5])
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
                     {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
-                     '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0}
+                     '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                 )
                 st.rerun()
         
@@ -575,33 +582,65 @@ if menu == "신청서 작성":
                 with cols1[5]:
                     item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 1, key=f"hat_{idx}")
                 with cols1[6]:
-                    if st.button("🗑️ 삭제", key=f"del_{idx}"):
+                    if st.button("🗑️", key=f"del_{idx}", help="신청자 삭제"):
                         items_to_delete.append(idx)
                 
-                cols2 = st.columns([2, 0.8, 2, 0.8, 2, 0.8])
-                for i in range(1, 4):
-                    prod_key = f'품목{i}'
-                    qty_key = f'수량{i}'
-                    col_prod_idx = (i - 1) * 2
-                    col_qty_idx = (i - 1) * 2 + 1
+                product_count = item.get('product_count', 3)
+                
+                products_per_row = 3
+                num_rows = (product_count + products_per_row - 1) // products_per_row
+                
+                for row_num in range(num_rows):
+                    start_i = row_num * products_per_row + 1
+                    end_i = min(start_i + products_per_row, product_count + 1)
                     
-                    with cols2[col_prod_idx]:
-                        current_uniform = item.get(prod_key, '')
-                        if current_uniform in uniform_options:
-                            default_uniform_idx = uniform_options.index(current_uniform)
-                        else:
-                            default_uniform_idx = 0
-                        selected_uniform = st.selectbox(f'품목{i}', uniform_options, index=default_uniform_idx, key=f"unif_select_{idx}_{i}")
+                    cols2 = st.columns([2, 0.8] * (end_i - start_i))
+                    col_idx = 0
+                    
+                    for i in range(start_i, end_i):
+                        prod_key = f'품목{i}'
+                        qty_key = f'수량{i}'
                         
-                        if selected_uniform == "직접 입력":
-                            item[prod_key] = st.text_input(f'품목{i} 입력', value=item.get(prod_key, '') if item.get(prod_key, '') not in uniform_options else '', key=f"prod_{idx}_{i}", label_visibility="collapsed", placeholder="품목 입력")
-                        elif selected_uniform == "선택 안함":
-                            item[prod_key] = ''
-                        else:
-                            item[prod_key] = selected_uniform
-                    
-                    with cols2[col_qty_idx]:
-                        item[qty_key] = st.number_input(f'수량{i}', value=item.get(qty_key, 0), min_value=0, key=f"unif_qty_{idx}_{i}")
+                        with cols2[col_idx]:
+                            current_uniform = item.get(prod_key, '')
+                            if current_uniform in uniform_options:
+                                default_uniform_idx = uniform_options.index(current_uniform)
+                            else:
+                                default_uniform_idx = 0
+                            selected_uniform = st.selectbox(f'품목{i}', uniform_options, index=default_uniform_idx, key=f"unif_select_{idx}_{i}")
+                            
+                            if selected_uniform == "직접 입력":
+                                item[prod_key] = st.text_input(f'품목{i} 입력', value=item.get(prod_key, '') if item.get(prod_key, '') not in uniform_options else '', key=f"prod_{idx}_{i}", label_visibility="collapsed", placeholder="품목 입력")
+                            elif selected_uniform == "선택 안함":
+                                item[prod_key] = ''
+                            else:
+                                item[prod_key] = selected_uniform
+                        
+                        with cols2[col_idx + 1]:
+                            item[qty_key] = st.number_input(f'수량{i}', value=item.get(qty_key, 0), min_value=0, key=f"unif_qty_{idx}_{i}")
+                        
+                        col_idx += 2
+                
+                btn_cols = st.columns([1, 1, 4])
+                with btn_cols[0]:
+                    if st.button("➕ 품목추가", key=f"add_prod_{idx}", help="품목 추가"):
+                        item['product_count'] = item.get('product_count', 3) + 1
+                        new_prod_key = f"품목{item['product_count']}"
+                        new_qty_key = f"수량{item['product_count']}"
+                        item[new_prod_key] = ''
+                        item[new_qty_key] = 0
+                        st.rerun()
+                with btn_cols[1]:
+                    if product_count > 1:
+                        if st.button("➖ 품목삭제", key=f"del_prod_{idx}", help="마지막 품목 삭제"):
+                            last_prod_key = f"품목{product_count}"
+                            last_qty_key = f"수량{product_count}"
+                            if last_prod_key in item:
+                                del item[last_prod_key]
+                            if last_qty_key in item:
+                                del item[last_qty_key]
+                            item['product_count'] = product_count - 1
+                            st.rerun()
                 
                 st.divider()
         
@@ -666,11 +705,12 @@ if menu == "신청서 작성":
                     total_amount = 0
                     for _, row in edited_uniform.iterrows():
                         products_list = []
-                        for i in range(1, 4):
+                        product_count = int(row.get('product_count', 3))
+                        for i in range(1, product_count + 1):
                             prod_key = f'품목{i}'
                             qty_key = f'수량{i}'
                             product_name = row.get(prod_key, '')
-                            quantity = int(row.get(qty_key, 0))
+                            quantity = int(row.get(qty_key, 0)) if pd.notna(row.get(qty_key, 0)) else 0
                             if product_name and quantity > 0:
                                 product_info = get_uniform_product_by_name(product_name)
                                 unit_price = product_info.get('unit_price', 0) if product_info else 0
@@ -1001,7 +1041,8 @@ elif menu == "신청내역조회":
                                 '품목2': '',
                                 '수량2': 0,
                                 '품목3': '',
-                                '수량3': 0
+                                '수량3': 0,
+                                'product_count': 3
                             })
                         st.session_state.uniform_items = items_list
                     
