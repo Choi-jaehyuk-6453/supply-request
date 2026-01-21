@@ -309,7 +309,27 @@ if menu == "신청서 작성":
                             if loaded.get('app_type') == '경비물품':
                                 st.session_state.supplies_items = loaded.get('items', [])
                             else:
-                                st.session_state.uniform_items = loaded.get('items', [])
+                                loaded_items = loaded.get('items', [])
+                                converted_items = []
+                                for item in loaded_items:
+                                    if '품목1' in item:
+                                        converted_items.append(item)
+                                    else:
+                                        converted_items.append({
+                                            '업종': item.get('업종', '경비직'),
+                                            '직책': item.get('직책', '경비원'),
+                                            '근무자': item.get('근무자', ''),
+                                            '상의': item.get('상의', '100'),
+                                            '하의': item.get('하의', '32'),
+                                            '모자': item.get('모자', '중'),
+                                            '품목1': item.get('품목', ''),
+                                            '수량1': item.get('수량', 1),
+                                            '품목2': '',
+                                            '수량2': 0,
+                                            '품목3': '',
+                                            '수량3': 0
+                                        })
+                                st.session_state.uniform_items = converted_items
                             st.session_state.draft_metadata = {
                                 'site_name': loaded.get('site_name', ''),
                                 'applicant': loaded.get('applicant', ''),
@@ -958,7 +978,12 @@ elif menu == "신청내역조회":
                                 '상의': top_size,
                                 '하의': bottom_size,
                                 '모자': hat_size,
-                                '품목': item_row['품목명']
+                                '품목1': item_row['품목명'],
+                                '수량1': int(item_row['수량']) if pd.notna(item_row['수량']) else 1,
+                                '품목2': '',
+                                '수량2': 0,
+                                '품목3': '',
+                                '수량3': 0
                             })
                         st.session_state.uniform_items = items_list
                     
