@@ -189,13 +189,16 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
                 session.add(application)
         
         session.commit()
+        session.close()
         
+        summary_message = ""
         if total_amount > 0:
             month = date_obj.month
-            update_monthly_summary_db(site_name, company, app_type, month, total_amount)
+            success, msg = update_monthly_summary_db(site_name, company, app_type, month, total_amount)
+            if not success:
+                summary_message = f" (주의: {msg})"
         
-        session.close()
-        return True, "데이터가 성공적으로 저장되었습니다."
+        return True, f"데이터가 성공적으로 저장되었습니다.{summary_message}"
     
     except Exception as e:
         session.rollback()
@@ -362,7 +365,7 @@ def get_all_monthly_summary_db():
 
 
 def update_monthly_summary_db(site_name, company, app_type, month, amount):
-    """월별 집계 업데이트 (현장이 없으면 자동 생성)"""
+    """월별 집계 업데이트 (관리자 모드에서 등록된 현장만 업데이트)"""
     session = get_session()
     if not session:
         return False, "데이터베이스 연결 오류"
@@ -374,28 +377,20 @@ def update_monthly_summary_db(site_name, company, app_type, month, amount):
             app_type=app_type
         ).first()
         
+        if not summary:
+            session.close()
+            return False, f"현장 '{site_name}'이(가) 월별 집계에 등록되지 않았습니다. 관리자 모드에서 현장을 먼저 등록해주세요."
+        
         month_cols = {
             1: 'month_01', 2: 'month_02', 3: 'month_03', 4: 'month_04',
             5: 'month_05', 6: 'month_06', 7: 'month_07', 8: 'month_08',
             9: 'month_09', 10: 'month_10', 11: 'month_11', 12: 'month_12'
         }
         
-        if summary:
-            col_name = month_cols.get(month)
-            if col_name:
-                current_value = getattr(summary, col_name, 0) or 0
-                setattr(summary, col_name, current_value + amount)
-        else:
-            summary = MonthlySummary(
-                company=company,
-                site_name=site_name,
-                app_type=app_type,
-                budget=0
-            )
-            col_name = month_cols.get(month)
-            if col_name:
-                setattr(summary, col_name, amount)
-            session.add(summary)
+        col_name = month_cols.get(month)
+        if col_name:
+            current_value = getattr(summary, col_name, 0) or 0
+            setattr(summary, col_name, current_value + amount)
         
         session.commit()
         session.close()
