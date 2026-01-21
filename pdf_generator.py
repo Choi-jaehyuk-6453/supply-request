@@ -144,69 +144,46 @@ def generate_uniform_pdf(data, output_path):
     items = data.get('items', [])
     
     header = [
-        Paragraph('업종', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('직책', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('근무자', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('상의', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('하의', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('모자', get_korean_style('h', 9, TA_CENTER, bold=True)),
-        Paragraph('품목1', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('수량', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('품목2', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('수량', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('품목3', get_korean_style('h', 8, TA_CENTER, bold=True)),
-        Paragraph('수량', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('품목', get_korean_style('h', 9, TA_CENTER, bold=True)),
     ]
     
     table_data = [header]
     
-    management_items = [item for item in items if item.get('job_type') == '관리직']
-    security_items = [item for item in items if item.get('job_type') == '경비직']
-    
-    def add_items_to_table(items_list, job_type):
-        if not items_list:
-            table_data.append([
-                Paragraph(job_type, get_korean_style('c', 9, TA_CENTER)),
-                '', '', '', '', '', '', '', '', '', '', ''
-            ])
-        else:
-            for i, item in enumerate(items_list):
-                top_size = item.get('top_size', '')
-                bottom_size = item.get('bottom_size', '')
-                hat_size = item.get('hat_size', '')
-                
-                products = item.get('products', [])
-                if not products and item.get('product'):
-                    products = [{'name': item.get('product', ''), 'quantity': item.get('quantity', 1)}]
-                
-                prod1 = products[0] if len(products) > 0 else {'name': '', 'quantity': ''}
-                prod2 = products[1] if len(products) > 1 else {'name': '', 'quantity': ''}
-                prod3 = products[2] if len(products) > 2 else {'name': '', 'quantity': ''}
-                
-                row = [
-                    Paragraph(job_type if i == 0 else '', get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(item.get('position', ''), get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(item.get('worker', ''), get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(str(top_size) if top_size else '', get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(str(bottom_size) if bottom_size else '', get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(str(hat_size) if hat_size else '', get_korean_style('c', 9, TA_CENTER)),
-                    Paragraph(prod1.get('name', ''), get_korean_style('c', 8, TA_LEFT)),
-                    Paragraph(str(prod1.get('quantity', '')) if prod1.get('quantity') else '', get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(prod2.get('name', ''), get_korean_style('c', 8, TA_LEFT)),
-                    Paragraph(str(prod2.get('quantity', '')) if prod2.get('quantity') else '', get_korean_style('c', 8, TA_CENTER)),
-                    Paragraph(prod3.get('name', ''), get_korean_style('c', 8, TA_LEFT)),
-                    Paragraph(str(prod3.get('quantity', '')) if prod3.get('quantity') else '', get_korean_style('c', 8, TA_CENTER)),
-                ]
-                table_data.append(row)
-    
-    add_items_to_table(management_items, '관리직')
-    add_items_to_table(security_items, '경비직')
+    for item in items:
+        top_size = item.get('top_size', '')
+        bottom_size = item.get('bottom_size', '')
+        hat_size = item.get('hat_size', '')
+        
+        products = item.get('products', [])
+        if not products and item.get('product'):
+            products = [{'name': item.get('product', ''), 'quantity': item.get('quantity', 1)}]
+        
+        products_str_list = []
+        for p in products:
+            if p.get('name') and p.get('quantity'):
+                products_str_list.append(f"{p['name']}({p['quantity']})")
+        products_text = ', '.join(products_str_list)
+        
+        row = [
+            Paragraph(item.get('position', ''), get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(item.get('worker', ''), get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(str(top_size) if top_size else '', get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(str(bottom_size) if bottom_size else '', get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(str(hat_size) if hat_size else '', get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(products_text, get_korean_style('c', 9, TA_LEFT)),
+        ]
+        table_data.append(row)
     
     if len(table_data) < 6:
         for _ in range(6 - len(table_data)):
-            table_data.append(['', '', '', '', '', '', '', '', '', '', '', ''])
+            table_data.append(['', '', '', '', '', ''])
     
-    col_widths = [15*mm, 15*mm, 20*mm, 12*mm, 12*mm, 12*mm, 28*mm, 10*mm, 28*mm, 10*mm, 28*mm, 10*mm]
+    col_widths = [20*mm, 25*mm, 18*mm, 18*mm, 18*mm, 75*mm]
     
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
