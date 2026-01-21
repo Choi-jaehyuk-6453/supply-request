@@ -541,9 +541,9 @@ if menu == "신청서 작성":
         uniform_product_list = get_uniform_products()
         uniform_options = ["선택 안함", "직접 입력"] + [p['name'] for p in uniform_product_list]
         
-        top_sizes = ['이하', '90', '95', '100', '105', '110', '115', '120', '이상']
-        bottom_sizes = ['이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
-        hat_sizes = ['대', '중', '소']
+        top_sizes = ['선택없음', '이하', '90', '95', '100', '105', '110', '115', '120', '이상']
+        bottom_sizes = ['선택없음', '이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
+        hat_sizes = ['선택없음', '대', '중', '소']
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
@@ -576,11 +576,11 @@ if menu == "신청서 작성":
                 with cols1[2]:
                     item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{idx}", placeholder="이름")
                 with cols1[3]:
-                    item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 3, key=f"top_{idx}")
+                    item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 4, key=f"top_{idx}")
                 with cols1[4]:
-                    item['하의'] = st.selectbox('하의', bottom_sizes, index=bottom_sizes.index(item.get('하의', '32')) if item.get('하의', '32') in bottom_sizes else 3, key=f"bot_{idx}")
+                    item['하의'] = st.selectbox('하의', bottom_sizes, index=bottom_sizes.index(item.get('하의', '32')) if item.get('하의', '32') in bottom_sizes else 4, key=f"bot_{idx}")
                 with cols1[5]:
-                    item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 1, key=f"hat_{idx}")
+                    item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 2, key=f"hat_{idx}")
                 with cols1[6]:
                     if st.button("🗑️", key=f"del_{idx}", help="신청자 삭제"):
                         items_to_delete.append(idx)
