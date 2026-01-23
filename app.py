@@ -1147,7 +1147,7 @@ elif menu == "신청내역조회":
                             })
                         st.session_state.supplies_items = items_list
                     else:
-                        items_list = []
+                        grouped_items = {}
                         for _, item_row in app_items.iterrows():
                             spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
                             top_size = ''
@@ -1167,21 +1167,49 @@ elif menu == "신청내역조회":
                                 except:
                                     pass
                             
-                            items_list.append({
-                                '업종': '경비직',
-                                '직책': '경비원',
-                                '근무자': '',
-                                '상의': top_size if top_size else '선택없음',
-                                '하의': bottom_size if bottom_size else '선택없음',
-                                '모자': hat_size if hat_size else '선택없음',
-                                '품목1': item_row['품목명'] if pd.notna(item_row['품목명']) else '',
-                                '수량1': int(item_row['수량']) if pd.notna(item_row['수량']) else 1,
-                                '품목2': '',
-                                '수량2': 0,
-                                '품목3': '',
-                                '수량3': 0,
-                                'product_count': 3
+                            size_key = f"{top_size}|{bottom_size}|{hat_size}"
+                            
+                            if size_key not in grouped_items:
+                                grouped_items[size_key] = {
+                                    '업종': '경비직',
+                                    '직책': '경비원',
+                                    '근무자': '',
+                                    '상의': top_size if top_size else '선택없음',
+                                    '하의': bottom_size if bottom_size else '선택없음',
+                                    '모자': hat_size if hat_size else '선택없음',
+                                    'products': []
+                                }
+                            
+                            grouped_items[size_key]['products'].append({
+                                'name': item_row['품목명'] if pd.notna(item_row['품목명']) else '',
+                                'qty': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
                             })
+                        
+                        items_list = []
+                        for size_key, item_data in grouped_items.items():
+                            uniform_item = {
+                                '업종': item_data['업종'],
+                                '직책': item_data['직책'],
+                                '근무자': item_data['근무자'],
+                                '상의': item_data['상의'],
+                                '하의': item_data['하의'],
+                                '모자': item_data['모자'],
+                            }
+                            
+                            products = item_data['products']
+                            product_count = max(3, len(products))
+                            
+                            for i in range(product_count):
+                                if i < len(products):
+                                    uniform_item[f'품목{i+1}'] = products[i]['name']
+                                    uniform_item[f'수량{i+1}'] = products[i]['qty']
+                                else:
+                                    uniform_item[f'품목{i+1}'] = ''
+                                    uniform_item[f'수량{i+1}'] = 0
+                            
+                            uniform_item['product_count'] = product_count
+                            items_list.append(uniform_item)
+                        
                         st.session_state.uniform_items = items_list
                     
                     st.session_state.draft_metadata = {
