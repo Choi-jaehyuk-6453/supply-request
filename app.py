@@ -916,17 +916,18 @@ elif menu == "신청내역조회":
                             '수량': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
                         })
                     
-                    pdf_bytes = generate_supplies_pdf(
-                        company=pdf_info['company'],
-                        site_name=pdf_info['site'],
-                        applicant=pdf_info['applicant'],
-                        applicant_contact='',
-                        address=address,
-                        contact=contact,
-                        items=items_for_pdf,
-                        remarks='',
-                        application_date=pdf_info['date']
-                    )
+                    pdf_data = {
+                        'company': pdf_info['company'],
+                        'site_name': pdf_info['site'],
+                        'applicant': pdf_info['applicant'],
+                        'applicant_contact': '',
+                        'address': address,
+                        'contact': contact,
+                        'items': items_for_pdf,
+                        'remarks': '',
+                        'application_date': pdf_info['date']
+                    }
+                    pdf_bytes, _ = generate_pdf(pdf_data, '경비물품')
                 else:
                     items_for_pdf = []
                     for _, item_row in app_items.iterrows():
@@ -963,17 +964,18 @@ elif menu == "신청내역조회":
                             '수량3': 0
                         })
                     
-                    pdf_bytes = generate_uniform_pdf(
-                        company=pdf_info['company'],
-                        site_name=pdf_info['site'],
-                        applicant=pdf_info['applicant'],
-                        applicant_contact='',
-                        address=address,
-                        contact=contact,
-                        items=items_for_pdf,
-                        remarks='',
-                        application_date=pdf_info['date']
-                    )
+                    pdf_data = {
+                        'company': pdf_info['company'],
+                        'site_name': pdf_info['site'],
+                        'applicant': pdf_info['applicant'],
+                        'applicant_contact': '',
+                        'address': address,
+                        'contact': contact,
+                        'items': items_for_pdf,
+                        'remarks': '',
+                        'application_date': pdf_info['date']
+                    }
+                    pdf_bytes, _ = generate_pdf(pdf_data, '피복')
                 
                 col_pdf1, col_pdf2 = st.columns([3, 1])
                 with col_pdf1:
