@@ -884,6 +884,122 @@ if menu == "신청서 작성":
 elif menu == "신청내역조회":
     st.subheader("신청 내역 조회")
     
+    if 'view_pdf_data' in st.session_state and st.session_state.view_pdf_data:
+        pdf_info = st.session_state.view_pdf_data
+        st.markdown("---")
+        st.markdown(f"### 📄 신청서 PDF - {pdf_info['date']} {pdf_info['site']} ({pdf_info['type']})")
+        
+        df_all = get_master_data()
+        if not df_all.empty:
+            df_all['날짜'] = pd.to_datetime(df_all['날짜'], errors='coerce')
+            df_all['날짜_str'] = df_all['날짜'].dt.strftime('%Y-%m-%d')
+            
+            app_items = df_all[
+                (df_all['날짜_str'] == pdf_info['date']) & 
+                (df_all['현장명'] == pdf_info['site']) & 
+                (df_all['신청자'] == pdf_info['applicant']) &
+                (df_all['구분'] == pdf_info['type'])
+            ]
+            
+            if not app_items.empty:
+                first_row = app_items.iloc[0]
+                site_info = get_site_by_name(pdf_info['site'])
+                address = site_info.get('address', '') if site_info else ''
+                contact = site_info.get('contact', '') if site_info else ''
+                
+                if pdf_info['type'] == '경비물품':
+                    items_for_pdf = []
+                    for _, item_row in app_items.iterrows():
+                        items_for_pdf.append({
+                            '품목명': item_row['품목명'],
+                            '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
+                            '수량': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
+                        })
+                    
+                    pdf_bytes = generate_supplies_pdf(
+                        company=pdf_info['company'],
+                        site_name=pdf_info['site'],
+                        applicant=pdf_info['applicant'],
+                        applicant_contact='',
+                        address=address,
+                        contact=contact,
+                        items=items_for_pdf,
+                        remarks='',
+                        application_date=pdf_info['date']
+                    )
+                else:
+                    items_for_pdf = []
+                    for _, item_row in app_items.iterrows():
+                        spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
+                        top_size = ''
+                        bottom_size = ''
+                        hat_size = ''
+                        
+                        if '상의:' in spec or '하의:' in spec or '모자:' in spec:
+                            try:
+                                parts = spec.split('/')
+                                for part in parts:
+                                    if part.startswith('상의:'):
+                                        top_size = part.replace('상의:', '')
+                                    elif part.startswith('하의:'):
+                                        bottom_size = part.replace('하의:', '')
+                                    elif part.startswith('모자:'):
+                                        hat_size = part.replace('모자:', '')
+                            except:
+                                pass
+                        
+                        items_for_pdf.append({
+                            '업종': '경비직',
+                            '직책': '경비원',
+                            '근무자': '',
+                            '상의': top_size,
+                            '하의': bottom_size,
+                            '모자': hat_size,
+                            '품목1': item_row['품목명'],
+                            '수량1': int(item_row['수량']) if pd.notna(item_row['수량']) else 1,
+                            '품목2': '',
+                            '수량2': 0,
+                            '품목3': '',
+                            '수량3': 0
+                        })
+                    
+                    pdf_bytes = generate_uniform_pdf(
+                        company=pdf_info['company'],
+                        site_name=pdf_info['site'],
+                        applicant=pdf_info['applicant'],
+                        applicant_contact='',
+                        address=address,
+                        contact=contact,
+                        items=items_for_pdf,
+                        remarks='',
+                        application_date=pdf_info['date']
+                    )
+                
+                col_pdf1, col_pdf2 = st.columns([3, 1])
+                with col_pdf1:
+                    st.download_button(
+                        label="📥 PDF 다운로드",
+                        data=pdf_bytes,
+                        file_name=f"{pdf_info['type']}신청서_{pdf_info['site']}_{pdf_info['date']}.pdf",
+                        mime="application/pdf",
+                        type="primary"
+                    )
+                with col_pdf2:
+                    if st.button("닫기", key="close_pdf_view"):
+                        st.session_state.view_pdf_data = None
+                        st.rerun()
+                
+                st.markdown("**신청 내역:**")
+                for _, item_row in app_items.iterrows():
+                    st.write(f"- {item_row['품목명']} ({item_row['규격']}) x {int(item_row['수량'])}")
+            else:
+                st.warning("해당 신청 내역을 찾을 수 없습니다.")
+                if st.button("닫기", key="close_pdf_view_not_found"):
+                    st.session_state.view_pdf_data = None
+                    st.rerun()
+        
+        st.markdown("---")
+    
     df = get_master_data()
     
     if not df.empty:
@@ -951,20 +1067,21 @@ elif menu == "신청내역조회":
                 st.metric("현장 수", f"{unique_sites}개")
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
-            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4])
+            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4, 0.4])
             header_cols[0].markdown("**날짜**")
             header_cols[1].markdown("**구분**")
             header_cols[2].markdown("**현장명**")
             header_cols[3].markdown("**신청자**")
             header_cols[4].markdown("**품목**")
             header_cols[5].markdown("**품목수**")
-            header_cols[6].markdown("**재신청**")
-            header_cols[7].markdown("**삭제**")
+            header_cols[6].markdown("**PDF**")
+            header_cols[7].markdown("**재신청**")
+            header_cols[8].markdown("**삭제**")
             
             st.divider()
             
             for idx, row in grouped.iterrows():
-                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4])
+                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4, 0.4])
                 row_cols[0].write(row['날짜_str'])
                 row_cols[1].write(row['구분'])
                 row_cols[2].write(row['현장명'])
@@ -972,10 +1089,21 @@ elif menu == "신청내역조회":
                 row_cols[4].write(row['품목'])
                 row_cols[5].write(f"{row['품목수']}개")
                 
+                pdf_key = f"pdf_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 del_key = f"del_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 
-                if row_cols[7].button("🗑️", key=del_key):
+                if row_cols[6].button("📄", key=pdf_key):
+                    st.session_state.view_pdf_data = {
+                        'date': row['날짜_str'],
+                        'site': row['현장명'],
+                        'applicant': row['신청자'],
+                        'type': row['구분'],
+                        'company': row['법인명']
+                    }
+                    st.rerun()
+                
+                if row_cols[8].button("🗑️", key=del_key):
                     success, msg = delete_application(
                         row['날짜_str'], 
                         row['현장명'], 
@@ -989,7 +1117,7 @@ elif menu == "신청내역조회":
                     else:
                         st.error(msg)
                 
-                if row_cols[6].button("✏️", key=btn_key):
+                if row_cols[7].button("✏️", key=btn_key):
                     display_df_temp = filtered_df.copy()
                     display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
                     
