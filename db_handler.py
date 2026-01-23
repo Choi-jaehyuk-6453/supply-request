@@ -404,6 +404,54 @@ def update_monthly_summary_db(site_name, company, app_type, month, amount):
         return False, f"월별 집계 업데이트 오류: {str(e)}"
 
 
+def recalculate_all_monthly_summaries():
+    """기존 신청 내역 기반으로 월별 집계 재계산 (VAT 10% 포함)"""
+    session = get_session()
+    if not session:
+        return False, "데이터베이스 연결 오류"
+    
+    try:
+        session.query(MonthlySummary).update({
+            'month_01': 0, 'month_02': 0, 'month_03': 0, 'month_04': 0,
+            'month_05': 0, 'month_06': 0, 'month_07': 0, 'month_08': 0,
+            'month_09': 0, 'month_10': 0, 'month_11': 0, 'month_12': 0
+        })
+        
+        applications = session.query(Application).all()
+        
+        month_cols = {
+            1: 'month_01', 2: 'month_02', 3: 'month_03', 4: 'month_04',
+            5: 'month_05', 6: 'month_06', 7: 'month_07', 8: 'month_08',
+            9: 'month_09', 10: 'month_10', 11: 'month_11', 12: 'month_12'
+        }
+        
+        updated_count = 0
+        for app in applications:
+            summary = session.query(MonthlySummary).filter_by(
+                company=app.company,
+                site_name=app.site_name,
+                app_type=app.app_type
+            ).first()
+            
+            if summary and app.total_amount > 0:
+                month = app.date.month
+                col_name = month_cols.get(month)
+                if col_name:
+                    current_value = getattr(summary, col_name, 0) or 0
+                    amount_with_vat = int(app.total_amount * 1.1)
+                    setattr(summary, col_name, current_value + amount_with_vat)
+                    updated_count += 1
+        
+        session.commit()
+        session.close()
+        return True, f"월별 집계가 재계산되었습니다. ({updated_count}건 처리, VAT 10% 포함)"
+    
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return False, f"재계산 오류: {str(e)}"
+
+
 def add_monthly_summary_site_db(site_name, company, uniform_budget, supply_budget):
     """월별 집계에 새 현장 추가"""
     session = get_session()
