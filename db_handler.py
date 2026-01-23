@@ -194,7 +194,8 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
         summary_message = ""
         if total_amount > 0:
             month = date_obj.month
-            success, msg = update_monthly_summary_db(site_name, company, app_type, month, total_amount)
+            amount_with_vat = int(total_amount * 1.1)
+            success, msg = update_monthly_summary_db(site_name, company, app_type, month, amount_with_vat)
             if not success:
                 summary_message = f" (주의: {msg})"
         
@@ -235,6 +236,7 @@ def delete_application_db(date_str, site_name, applicant, app_type, company):
             session.delete(app)
         
         if total_amount > 0:
+            amount_with_vat = int(total_amount * 1.1)
             summary = session.query(MonthlySummary).filter_by(
                 company=company,
                 site_name=site_name,
@@ -250,7 +252,7 @@ def delete_application_db(date_str, site_name, applicant, app_type, company):
                 col_name = month_cols.get(month)
                 if col_name:
                     current_value = getattr(summary, col_name, 0) or 0
-                    new_value = max(0, current_value - total_amount)
+                    new_value = max(0, current_value - amount_with_vat)
                     setattr(summary, col_name, new_value)
         
         session.commit()
