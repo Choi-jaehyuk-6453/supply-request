@@ -887,7 +887,7 @@ elif menu == "신청내역조회":
     if 'view_pdf_data' in st.session_state and st.session_state.view_pdf_data:
         pdf_info = st.session_state.view_pdf_data
         st.markdown("---")
-        st.markdown(f"### 📄 신청서 PDF - {pdf_info['date']} {pdf_info['site']} ({pdf_info['type']})")
+        st.markdown(f"### 📋 신청 상세 내역 - {pdf_info['date']} {pdf_info['site']} ({pdf_info['type']})")
         
         df_all = get_master_data()
         if not df_all.empty:
@@ -902,98 +902,40 @@ elif menu == "신청내역조회":
             ]
             
             if not app_items.empty:
-                first_row = app_items.iloc[0]
                 site_info = get_site_by_name(pdf_info['site'])
-                address = site_info.get('address', '') if site_info else ''
-                contact = site_info.get('contact', '') if site_info else ''
                 
-                if pdf_info['type'] == '경비물품':
-                    items_for_pdf = []
-                    for _, item_row in app_items.iterrows():
-                        items_for_pdf.append({
-                            '품목명': item_row['품목명'],
-                            '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
-                            '수량': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
-                        })
+                col_info1, col_info2 = st.columns(2)
+                with col_info1:
+                    st.markdown(f"**법인:** {pdf_info['company']}")
+                    st.markdown(f"**현장명:** {pdf_info['site']}")
+                    st.markdown(f"**신청자:** {pdf_info['applicant']}")
+                with col_info2:
+                    st.markdown(f"**신청일:** {pdf_info['date']}")
+                    st.markdown(f"**구분:** {pdf_info['type']}")
+                    if site_info:
+                        st.markdown(f"**주소:** {site_info.get('address', '-')}")
+                
+                st.markdown("---")
+                st.markdown("**📦 신청 품목:**")
+                
+                total_amount = 0
+                for idx, (_, item_row) in enumerate(app_items.iterrows(), 1):
+                    qty = int(item_row['수량']) if pd.notna(item_row['수량']) else 0
+                    unit_price = int(item_row['단가']) if pd.notna(item_row['단가']) else 0
+                    amount = int(item_row['합계금액']) if pd.notna(item_row['합계금액']) else qty * unit_price
+                    total_amount += amount
                     
-                    pdf_data = {
-                        'company': pdf_info['company'],
-                        'site_name': pdf_info['site'],
-                        'applicant': pdf_info['applicant'],
-                        'applicant_contact': '',
-                        'address': address,
-                        'contact': contact,
-                        'items': items_for_pdf,
-                        'remarks': '',
-                        'application_date': pdf_info['date']
-                    }
-                    pdf_bytes, _ = generate_pdf(pdf_data, '경비물품')
-                else:
-                    items_for_pdf = []
-                    for _, item_row in app_items.iterrows():
-                        spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
-                        top_size = ''
-                        bottom_size = ''
-                        hat_size = ''
-                        
-                        if '상의:' in spec or '하의:' in spec or '모자:' in spec:
-                            try:
-                                parts = spec.split('/')
-                                for part in parts:
-                                    if part.startswith('상의:'):
-                                        top_size = part.replace('상의:', '')
-                                    elif part.startswith('하의:'):
-                                        bottom_size = part.replace('하의:', '')
-                                    elif part.startswith('모자:'):
-                                        hat_size = part.replace('모자:', '')
-                            except:
-                                pass
-                        
-                        items_for_pdf.append({
-                            '업종': '경비직',
-                            '직책': '경비원',
-                            '근무자': '',
-                            '상의': top_size,
-                            '하의': bottom_size,
-                            '모자': hat_size,
-                            '품목1': item_row['품목명'],
-                            '수량1': int(item_row['수량']) if pd.notna(item_row['수량']) else 1,
-                            '품목2': '',
-                            '수량2': 0,
-                            '품목3': '',
-                            '수량3': 0
-                        })
-                    
-                    pdf_data = {
-                        'company': pdf_info['company'],
-                        'site_name': pdf_info['site'],
-                        'applicant': pdf_info['applicant'],
-                        'applicant_contact': '',
-                        'address': address,
-                        'contact': contact,
-                        'items': items_for_pdf,
-                        'remarks': '',
-                        'application_date': pdf_info['date']
-                    }
-                    pdf_bytes, _ = generate_pdf(pdf_data, '피복')
+                    spec_str = f" ({item_row['규격']})" if pd.notna(item_row['규격']) and item_row['규격'] else ""
+                    price_str = f" - {amount:,}원" if amount > 0 else ""
+                    st.write(f"{idx}. {item_row['품목명']}{spec_str} x {qty}개{price_str}")
                 
-                col_pdf1, col_pdf2 = st.columns([3, 1])
-                with col_pdf1:
-                    st.download_button(
-                        label="📥 PDF 다운로드",
-                        data=pdf_bytes,
-                        file_name=f"{pdf_info['type']}신청서_{pdf_info['site']}_{pdf_info['date']}.pdf",
-                        mime="application/pdf",
-                        type="primary"
-                    )
-                with col_pdf2:
-                    if st.button("닫기", key="close_pdf_view"):
-                        st.session_state.view_pdf_data = None
-                        st.rerun()
+                if total_amount > 0:
+                    st.markdown(f"**총 금액: {total_amount:,}원**")
                 
-                st.markdown("**신청 내역:**")
-                for _, item_row in app_items.iterrows():
-                    st.write(f"- {item_row['품목명']} ({item_row['규격']}) x {int(item_row['수량'])}")
+                st.markdown("---")
+                if st.button("닫기", key="close_pdf_view", type="primary"):
+                    st.session_state.view_pdf_data = None
+                    st.rerun()
             else:
                 st.warning("해당 신청 내역을 찾을 수 없습니다.")
                 if st.button("닫기", key="close_pdf_view_not_found"):
