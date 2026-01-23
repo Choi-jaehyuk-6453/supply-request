@@ -63,6 +63,7 @@ class Site(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
+    company = Column(String(50), default='미래')
     address = Column(String(500))
     contact = Column(String(100))
     created_at = Column(DateTime, default=datetime.now)
@@ -649,23 +650,23 @@ def get_sites_db():
         return []
     try:
         sites = session.query(Site).all()
-        result = [{"id": s.id, "name": s.name, "address": s.address or "", "contact": s.contact or ""} for s in sites]
+        result = [{"id": s.id, "name": s.name, "company": s.company or "미래", "address": s.address or "", "contact": s.contact or ""} for s in sites]
         session.close()
         return result
     except Exception:
         session.close()
         return []
 
-def add_site_db(name, address, contact):
+def add_site_db(name, company, address, contact):
     """현장 추가"""
     session = get_session()
     if not session:
         return None
     try:
-        site = Site(name=name, address=address, contact=contact, created_at=datetime.now())
+        site = Site(name=name, company=company, address=address, contact=contact, created_at=datetime.now())
         session.add(site)
         session.commit()
-        result = {"id": site.id, "name": site.name, "address": site.address, "contact": site.contact}
+        result = {"id": site.id, "name": site.name, "company": site.company, "address": site.address, "contact": site.contact}
         session.close()
         return result
     except Exception:
@@ -673,7 +674,7 @@ def add_site_db(name, address, contact):
         session.close()
         return None
 
-def update_site_db(site_id, name, address, contact):
+def update_site_db(site_id, name, company, address, contact):
     """현장 정보 수정"""
     session = get_session()
     if not session:
@@ -682,11 +683,12 @@ def update_site_db(site_id, name, address, contact):
         site = session.query(Site).filter(Site.id == site_id).first()
         if site:
             site.name = name
+            site.company = company
             site.address = address
             site.contact = contact
             site.updated_at = datetime.now()
             session.commit()
-            result = {"id": site.id, "name": site.name, "address": site.address, "contact": site.contact}
+            result = {"id": site.id, "name": site.name, "company": site.company, "address": site.address, "contact": site.contact}
             session.close()
             return result
         session.close()

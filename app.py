@@ -359,7 +359,8 @@ if menu == "신청서 작성":
     sites = get_sites()
     applicants_list = get_applicants()
     
-    site_names = ["직접 입력"] + [s["name"] for s in sites]
+    filtered_sites = [s for s in sites if s.get("company", "미래") == company]
+    site_names = ["직접 입력"] + [s["name"] for s in filtered_sites]
     applicant_names = ["직접 입력"] + [a["name"] for a in applicants_list]
     
     site_info = None
@@ -1242,14 +1243,15 @@ elif menu == "관리자 모드":
         with st.form("add_site_form", clear_on_submit=True):
             col_s1, col_s2 = st.columns(2)
             with col_s1:
+                new_site_company = st.selectbox("법인", options=["미래", "다원"], key="new_site_company")
                 new_site_name = st.text_input("현장명", placeholder="예: 고산센트레빌")
-                new_site_address = st.text_input("배송지 주소", placeholder="예: 경기도 성남시 중원구 성남대로 1133")
             with col_s2:
+                new_site_address = st.text_input("배송지 주소", placeholder="예: 경기도 성남시 중원구 성남대로 1133")
                 new_site_contact = st.text_input("현장 연락처 (담당자)", placeholder="예: 010-2211-9352 정봉환 경비팀장")
             
             if st.form_submit_button("현장 등록", type="primary"):
                 if new_site_name:
-                    add_site(new_site_name, new_site_address, new_site_contact)
+                    add_site(new_site_name, new_site_company, new_site_address, new_site_contact)
                     st.success(f"'{new_site_name}' 현장이 등록되었습니다.")
                     st.rerun()
                 else:
@@ -1258,16 +1260,19 @@ elif menu == "관리자 모드":
         st.markdown("#### 등록된 현장 목록")
         if sites:
             for site in sites:
-                with st.expander(f"📍 {site['name']}"):
+                with st.expander(f"📍 [{site.get('company', '미래')}] {site['name']}"):
                     if st.session_state.edit_site_id == site['id']:
                         with st.form(f"edit_site_form_{site['id']}"):
+                            current_company = site.get('company', '미래')
+                            company_options = ["미래", "다원"]
+                            edit_company = st.selectbox("법인", options=company_options, index=company_options.index(current_company) if current_company in company_options else 0)
                             edit_name = st.text_input("현장명", value=site['name'])
                             edit_address = st.text_input("배송지 주소", value=site.get('address', ''))
                             edit_contact = st.text_input("현장 연락처", value=site.get('contact', ''))
                             col_save, col_cancel = st.columns(2)
                             with col_save:
                                 if st.form_submit_button("저장", type="primary"):
-                                    update_site(site['id'], edit_name, edit_address, edit_contact)
+                                    update_site(site['id'], edit_name, edit_company, edit_address, edit_contact)
                                     st.session_state.edit_site_id = None
                                     st.success("수정되었습니다.")
                                     st.rerun()
@@ -1276,6 +1281,7 @@ elif menu == "관리자 모드":
                                     st.session_state.edit_site_id = None
                                     st.rerun()
                     else:
+                        st.text(f"법인: {site.get('company', '미래')}")
                         st.text(f"주소: {site.get('address', '-')}")
                         st.text(f"연락처: {site.get('contact', '-')}")
                         col_btn1, col_btn2 = st.columns(2)

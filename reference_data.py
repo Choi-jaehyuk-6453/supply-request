@@ -16,13 +16,13 @@ def get_sites():
     """모든 현장 목록 조회"""
     return get_sites_db()
 
-def add_site(name, address, contact):
+def add_site(name, company, address, contact):
     """현장 추가"""
-    return add_site_db(name, address, contact)
+    return add_site_db(name, company, address, contact)
 
-def update_site(site_id, name, address, contact):
+def update_site(site_id, name, company, address, contact):
     """현장 정보 수정"""
-    return update_site_db(site_id, name, address, contact)
+    return update_site_db(site_id, name, company, address, contact)
 
 def delete_site(site_id):
     """현장 삭제"""
