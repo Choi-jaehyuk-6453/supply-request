@@ -14,8 +14,7 @@ from db_handler import (
     add_monthly_summary_site_db as add_monthly_summary_site,
     delete_monthly_summary_site_db as delete_monthly_summary_site,
     update_monthly_summary_budget_db as update_monthly_summary_budget,
-    delete_application_db as delete_application,
-    recalculate_all_monthly_summaries
+    delete_application_db as delete_application
 )
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
@@ -1216,19 +1215,6 @@ elif menu == "월별 집계":
                             st.error(msg)
         else:
             st.info("예산을 수정할 현장이 없습니다.")
-        
-        st.divider()
-        
-        st.markdown("#### 월별 집계 재계산")
-        st.info("기존 신청 내역을 기반으로 월별 집계를 다시 계산합니다. (부가가치세 10% 포함)")
-        if st.button("🔄 월별 집계 재계산", type="primary", key="recalculate_btn"):
-            with st.spinner("재계산 중..."):
-                success, msg = recalculate_all_monthly_summaries()
-                if success:
-                    st.success(msg)
-                    st.rerun()
-                else:
-                    st.error(msg)
 
 elif menu == "관리자 모드":
     st.subheader("관리자 모드")
