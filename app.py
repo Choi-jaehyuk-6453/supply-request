@@ -1130,24 +1130,31 @@ elif menu == "신청내역조회":
                         (display_df_temp['구분'] == row['구분'])
                     ]
                     
+                    reapply_site_info = get_site_by_name(row['현장명'])
+                    reapply_address = reapply_site_info.get('address', '') if reapply_site_info else ''
+                    reapply_contact = reapply_site_info.get('contact', '') if reapply_site_info else ''
+                    
+                    reapply_applicant_info = get_applicant_by_name(row['신청자'])
+                    reapply_applicant_contact = reapply_applicant_info.get('contact', '') if reapply_applicant_info else ''
+                    
                     if row['구분'] == '경비물품':
                         items_list = []
                         for _, item_row in app_items.iterrows():
                             items_list.append({
                                 '품목명': item_row['품목명'],
                                 '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
-                                '수량': int(item_row['수량'])
+                                '수량': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
                             })
                         st.session_state.supplies_items = items_list
                     else:
                         items_list = []
                         for _, item_row in app_items.iterrows():
                             spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
-                            top_size = '100'
-                            bottom_size = '32'
-                            hat_size = '중'
+                            top_size = ''
+                            bottom_size = ''
+                            hat_size = ''
                             
-                            if '상의:' in spec:
+                            if '상의:' in spec or '하의:' in spec or '모자:' in spec:
                                 try:
                                     parts = spec.split('/')
                                     for part in parts:
@@ -1164,10 +1171,10 @@ elif menu == "신청내역조회":
                                 '업종': '경비직',
                                 '직책': '경비원',
                                 '근무자': '',
-                                '상의': top_size,
-                                '하의': bottom_size,
-                                '모자': hat_size,
-                                '품목1': item_row['품목명'],
+                                '상의': top_size if top_size else '선택없음',
+                                '하의': bottom_size if bottom_size else '선택없음',
+                                '모자': hat_size if hat_size else '선택없음',
+                                '품목1': item_row['품목명'] if pd.notna(item_row['품목명']) else '',
                                 '수량1': int(item_row['수량']) if pd.notna(item_row['수량']) else 1,
                                 '품목2': '',
                                 '수량2': 0,
@@ -1180,9 +1187,9 @@ elif menu == "신청내역조회":
                     st.session_state.draft_metadata = {
                         'site_name': row['현장명'],
                         'applicant': row['신청자'],
-                        'applicant_contact': '',
-                        'address': '',
-                        'contact': '',
+                        'applicant_contact': reapply_applicant_contact,
+                        'address': reapply_address,
+                        'contact': reapply_contact,
                         'remarks': '',
                         'application_date': date.today().strftime('%Y-%m-%d')
                     }
