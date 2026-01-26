@@ -556,7 +556,7 @@ if menu == "신청서 작성":
             if 'product_count' not in item:
                 item['product_count'] = 3
         
-        col_add, col_del = st.columns([1, 5])
+        col_add, col_copy, col_space = st.columns([1, 1, 4])
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
@@ -564,6 +564,30 @@ if menu == "신청서 작성":
                      '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                 )
                 st.rerun()
+        with col_copy:
+            if st.button("📋 복사 행추가", use_container_width=True, help="마지막 신청자 품목 복사"):
+                if st.session_state.uniform_items:
+                    last_item = st.session_state.uniform_items[-1]
+                    new_item = {
+                        '업종': last_item.get('업종', '경비직'),
+                        '직책': last_item.get('직책', '경비원'),
+                        '근무자': '',
+                        '상의': last_item.get('상의', '100'),
+                        '하의': last_item.get('하의', '32'),
+                        '모자': last_item.get('모자', '중'),
+                        'product_count': last_item.get('product_count', 3)
+                    }
+                    for i in range(1, last_item.get('product_count', 3) + 1):
+                        new_item[f'품목{i}'] = last_item.get(f'품목{i}', '')
+                        new_item[f'수량{i}'] = last_item.get(f'수량{i}', 0)
+                    st.session_state.uniform_items.append(new_item)
+                    st.rerun()
+                else:
+                    st.session_state.uniform_items.append(
+                        {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
+                         '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
+                    )
+                    st.rerun()
         
         items_to_delete = []
         for idx, item in enumerate(st.session_state.uniform_items):
@@ -996,11 +1020,33 @@ elif menu == "신청내역조회":
         st.markdown("### 조회 결과")
         
         if not filtered_df.empty:
-            grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).agg({
-                '품목명': lambda x: ', '.join(x.astype(str).unique()),
-                '합계금액': 'sum'
-            }).reset_index()
-            grouped.columns = ['날짜', '법인명', '현장명', '신청자', '구분', '품목', '총액']
+            def format_product_with_spec(group):
+                items = []
+                for _, row in group.iterrows():
+                    product = str(row['품목명']) if pd.notna(row['품목명']) else ''
+                    spec = str(row['규격']) if pd.notna(row['규격']) and row['규격'] else ''
+                    size_info = ''
+                    if spec and ('상의:' in spec or '하의:' in spec or '모자:' in spec):
+                        parts = spec.split('/')
+                        sizes = []
+                        for part in parts:
+                            if part.startswith('상의:') or part.startswith('하의:') or part.startswith('모자:'):
+                                sizes.append(part)
+                        if sizes:
+                            size_info = f"[{'/'.join(sizes)}]"
+                    if product:
+                        if size_info:
+                            items.append(f"{product}{size_info}")
+                        else:
+                            items.append(product)
+                return ', '.join(items[:3]) + ('...' if len(items) > 3 else '')
+            
+            grouped = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).apply(
+                lambda x: pd.Series({
+                    '품목': format_product_with_spec(x),
+                    '총액': x['합계금액'].sum()
+                })
+            ).reset_index()
             grouped['품목수'] = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).size().values
             
             col_metric1, col_metric2 = st.columns(2)
@@ -1018,7 +1064,7 @@ elif menu == "신청내역조회":
             header_cols[3].markdown("**신청자**")
             header_cols[4].markdown("**품목**")
             header_cols[5].markdown("**품목수**")
-            header_cols[6].markdown("**PDF**")
+            header_cols[6].markdown("**조회**")
             header_cols[7].markdown("**재신청**")
             header_cols[8].markdown("**삭제**")
             
@@ -1092,43 +1138,45 @@ elif menu == "신청내역조회":
                         grouped_items = {}
                         for _, item_row in app_items.iterrows():
                             spec = str(item_row['규격']) if pd.notna(item_row['규격']) else ''
-                            top_size = ''
-                            bottom_size = ''
-                            hat_size = ''
+                            worker = ''
+                            top_size = '선택없음'
+                            bottom_size = '선택없음'
+                            hat_size = '선택없음'
                             
-                            if '상의:' in spec or '하의:' in spec or '모자:' in spec:
-                                try:
-                                    parts = spec.split('/')
-                                    for part in parts:
-                                        if part.startswith('상의:'):
-                                            top_size = part.replace('상의:', '')
-                                        elif part.startswith('하의:'):
-                                            bottom_size = part.replace('하의:', '')
-                                        elif part.startswith('모자:'):
-                                            hat_size = part.replace('모자:', '')
-                                except:
-                                    pass
+                            if spec:
+                                parts = spec.split('/')
+                                for part in parts:
+                                    if part.startswith('근무자:'):
+                                        worker = part.replace('근무자:', '')
+                                    elif part.startswith('상의:'):
+                                        top_size = part.replace('상의:', '')
+                                    elif part.startswith('하의:'):
+                                        bottom_size = part.replace('하의:', '')
+                                    elif part.startswith('모자:'):
+                                        hat_size = part.replace('모자:', '')
+                                if not any(part.startswith(('근무자:', '상의:', '하의:', '모자:')) for part in parts):
+                                    worker = spec
                             
-                            size_key = f"{top_size}|{bottom_size}|{hat_size}"
+                            spec_key = spec if spec else f"applicant_{len(grouped_items)}"
                             
-                            if size_key not in grouped_items:
-                                grouped_items[size_key] = {
+                            if spec_key not in grouped_items:
+                                grouped_items[spec_key] = {
                                     '업종': '경비직',
                                     '직책': '경비원',
-                                    '근무자': '',
+                                    '근무자': worker,
                                     '상의': top_size if top_size else '선택없음',
                                     '하의': bottom_size if bottom_size else '선택없음',
                                     '모자': hat_size if hat_size else '선택없음',
                                     'products': []
                                 }
                             
-                            grouped_items[size_key]['products'].append({
+                            grouped_items[spec_key]['products'].append({
                                 'name': item_row['품목명'] if pd.notna(item_row['품목명']) else '',
                                 'qty': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
                             })
                         
                         items_list = []
-                        for size_key, item_data in grouped_items.items():
+                        for spec_key, item_data in grouped_items.items():
                             uniform_item = {
                                 '업종': item_data['업종'],
                                 '직책': item_data['직책'],
