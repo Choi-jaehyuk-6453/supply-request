@@ -567,19 +567,30 @@ if menu == "신청서 작성":
         with col_copy:
             if st.button("📋 복사 행추가", use_container_width=True, help="마지막 신청자 품목 복사"):
                 if st.session_state.uniform_items:
+                    last_idx = len(st.session_state.uniform_items) - 1
                     last_item = st.session_state.uniform_items[-1]
+                    product_count = last_item.get('product_count', 3)
+                    
                     new_item = {
-                        '업종': last_item.get('업종', '경비직'),
-                        '직책': last_item.get('직책', '경비원'),
+                        '업종': st.session_state.get(f'job_{last_idx}', last_item.get('업종', '경비직')),
+                        '직책': st.session_state.get(f'pos_{last_idx}', last_item.get('직책', '경비원')),
                         '근무자': '',
-                        '상의': last_item.get('상의', '100'),
-                        '하의': last_item.get('하의', '32'),
-                        '모자': last_item.get('모자', '중'),
-                        'product_count': last_item.get('product_count', 3)
+                        '상의': st.session_state.get(f'top_{last_idx}', last_item.get('상의', '100')),
+                        '하의': st.session_state.get(f'bot_{last_idx}', last_item.get('하의', '32')),
+                        '모자': st.session_state.get(f'hat_{last_idx}', last_item.get('모자', '중')),
+                        'product_count': product_count
                     }
-                    for i in range(1, last_item.get('product_count', 3) + 1):
-                        new_item[f'품목{i}'] = last_item.get(f'품목{i}', '')
-                        new_item[f'수량{i}'] = last_item.get(f'수량{i}', 0)
+                    for i in range(1, product_count + 1):
+                        widget_prod_key = f'unif_select_{last_idx}_{i}'
+                        widget_qty_key = f'unif_qty_{last_idx}_{i}'
+                        prod_value = st.session_state.get(widget_prod_key, last_item.get(f'품목{i}', ''))
+                        qty_value = st.session_state.get(widget_qty_key, last_item.get(f'수량{i}', 0))
+                        if prod_value == '선택 안함':
+                            prod_value = ''
+                        elif prod_value == '직접 입력':
+                            prod_value = st.session_state.get(f'prod_{last_idx}_{i}', last_item.get(f'품목{i}', ''))
+                        new_item[f'품목{i}'] = prod_value
+                        new_item[f'수량{i}'] = qty_value
                     st.session_state.uniform_items.append(new_item)
                     st.rerun()
                 else:
