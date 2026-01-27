@@ -150,6 +150,7 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
                 top_size = item.get('top_size', '')
                 bottom_size = item.get('bottom_size', '')
                 hat_size = item.get('hat_size', '')
+                shoe_size = item.get('shoe_size', '')
                 spec_parts = []
                 if worker:
                     spec_parts.append(f"근무자:{worker}")
@@ -159,6 +160,8 @@ def append_to_master_db(date_str, app_type, company, site_name, applicant, items
                     spec_parts.append(f"하의:{bottom_size}")
                 if hat_size and hat_size != '선택없음':
                     spec_parts.append(f"모자:{hat_size}")
+                if shoe_size and shoe_size != '선택없음':
+                    spec_parts.append(f"신발:{shoe_size}")
                 spec_str = '/'.join(spec_parts) if spec_parts else ''
                 
                 for product in products:

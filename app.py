@@ -545,10 +545,11 @@ if menu == "신청서 작성":
         top_sizes = ['선택없음', '이하', '90', '95', '100', '105', '110', '115', '120', '이상']
         bottom_sizes = ['선택없음', '이하', '28', '30', '32', '34', '36', '38', '40', '42', '이상']
         hat_sizes = ['선택없음', '대', '중', '소']
+        shoe_sizes = ['선택없음', '이하', '250', '255', '260', '265', '270', '275', '280', '이상']
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
-                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
+                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                  '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
             ]
         
@@ -560,7 +561,7 @@ if menu == "신청서 작성":
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
-                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
+                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                      '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                 )
                 st.rerun()
@@ -578,6 +579,7 @@ if menu == "신청서 작성":
                         '상의': st.session_state.get(f'top_{last_idx}', last_item.get('상의', '100')),
                         '하의': st.session_state.get(f'bot_{last_idx}', last_item.get('하의', '32')),
                         '모자': st.session_state.get(f'hat_{last_idx}', last_item.get('모자', '중')),
+                        '신발': st.session_state.get(f'shoe_{last_idx}', last_item.get('신발', '선택없음')),
                         'product_count': product_count
                     }
                     for i in range(1, product_count + 1):
@@ -595,7 +597,7 @@ if menu == "신청서 작성":
                     st.rerun()
                 else:
                     st.session_state.uniform_items.append(
-                        {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', 
+                        {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                          '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                     )
                     st.rerun()
@@ -604,7 +606,7 @@ if menu == "신청서 작성":
         for idx, item in enumerate(st.session_state.uniform_items):
             with st.container():
                 st.markdown(f"##### 신청자 {idx+1}")
-                cols1 = st.columns([1, 1, 1.5, 0.8, 0.8, 0.8, 0.5])
+                cols1 = st.columns([1, 1, 1.5, 0.7, 0.7, 0.6, 0.7, 0.4])
                 with cols1[0]:
                     item['업종'] = st.selectbox('업종', ['관리직', '경비직'], index=['관리직', '경비직'].index(item.get('업종', '경비직')), key=f"job_{idx}")
                 with cols1[1]:
@@ -618,6 +620,8 @@ if menu == "신청서 작성":
                 with cols1[5]:
                     item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 2, key=f"hat_{idx}")
                 with cols1[6]:
+                    item['신발'] = st.selectbox('신발', shoe_sizes, index=shoe_sizes.index(item.get('신발', '선택없음')) if item.get('신발', '선택없음') in shoe_sizes else 0, key=f"shoe_{idx}")
+                with cols1[7]:
                     if st.button("🗑️", key=f"del_{idx}", help="신청자 삭제"):
                         items_to_delete.append(idx)
                 
@@ -766,6 +770,7 @@ if menu == "신청서 작성":
                                 'top_size': row['상의'],
                                 'bottom_size': row['하의'],
                                 'hat_size': row['모자'],
+                                'shoe_size': row.get('신발', '선택없음'),
                                 'products': products_list
                             })
                     form_data['items'] = items
@@ -1037,11 +1042,11 @@ elif menu == "신청내역조회":
                     product = str(row['품목명']) if pd.notna(row['품목명']) else ''
                     spec = str(row['규격']) if pd.notna(row['규격']) and row['규격'] else ''
                     size_info = ''
-                    if spec and ('상의:' in spec or '하의:' in spec or '모자:' in spec):
+                    if spec and ('상의:' in spec or '하의:' in spec or '모자:' in spec or '신발:' in spec):
                         parts = spec.split('/')
                         sizes = []
                         for part in parts:
-                            if part.startswith('상의:') or part.startswith('하의:') or part.startswith('모자:'):
+                            if part.startswith('상의:') or part.startswith('하의:') or part.startswith('모자:') or part.startswith('신발:'):
                                 sizes.append(part)
                         if sizes:
                             size_info = f"[{'/'.join(sizes)}]"
@@ -1153,6 +1158,7 @@ elif menu == "신청내역조회":
                             top_size = '선택없음'
                             bottom_size = '선택없음'
                             hat_size = '선택없음'
+                            shoe_size = '선택없음'
                             
                             if spec:
                                 parts = spec.split('/')
@@ -1165,7 +1171,9 @@ elif menu == "신청내역조회":
                                         bottom_size = part.replace('하의:', '')
                                     elif part.startswith('모자:'):
                                         hat_size = part.replace('모자:', '')
-                                if not any(part.startswith(('근무자:', '상의:', '하의:', '모자:')) for part in parts):
+                                    elif part.startswith('신발:'):
+                                        shoe_size = part.replace('신발:', '')
+                                if not any(part.startswith(('근무자:', '상의:', '하의:', '모자:', '신발:')) for part in parts):
                                     worker = spec
                             
                             spec_key = spec if spec else f"applicant_{len(grouped_items)}"
@@ -1178,6 +1186,7 @@ elif menu == "신청내역조회":
                                     '상의': top_size if top_size else '선택없음',
                                     '하의': bottom_size if bottom_size else '선택없음',
                                     '모자': hat_size if hat_size else '선택없음',
+                                    '신발': shoe_size if shoe_size else '선택없음',
                                     'products': []
                                 }
                             
@@ -1195,6 +1204,7 @@ elif menu == "신청내역조회":
                                 '상의': item_data['상의'],
                                 '하의': item_data['하의'],
                                 '모자': item_data['모자'],
+                                '신발': item_data.get('신발', '선택없음'),
                             }
                             
                             products = item_data['products']

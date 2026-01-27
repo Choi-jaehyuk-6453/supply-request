@@ -167,6 +167,7 @@ def generate_uniform_pdf(data, output_path):
         Paragraph('상의', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('하의', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('모자', get_korean_style('h', 9, TA_CENTER, bold=True)),
+        Paragraph('신발', get_korean_style('h', 9, TA_CENTER, bold=True)),
         Paragraph('품목', get_korean_style('h', 9, TA_CENTER, bold=True)),
     ]
     
@@ -176,6 +177,9 @@ def generate_uniform_pdf(data, output_path):
         top_size = item.get('top_size', '')
         bottom_size = item.get('bottom_size', '')
         hat_size = item.get('hat_size', '')
+        shoe_size = item.get('shoe_size', '')
+        if shoe_size == '선택없음':
+            shoe_size = ''
         
         products = item.get('products', [])
         if not products and item.get('product'):
@@ -193,15 +197,16 @@ def generate_uniform_pdf(data, output_path):
             Paragraph(str(top_size) if top_size else '', get_korean_style('c', 9, TA_CENTER)),
             Paragraph(str(bottom_size) if bottom_size else '', get_korean_style('c', 9, TA_CENTER)),
             Paragraph(str(hat_size) if hat_size else '', get_korean_style('c', 9, TA_CENTER)),
+            Paragraph(str(shoe_size) if shoe_size else '', get_korean_style('c', 9, TA_CENTER)),
             Paragraph(products_text, get_korean_style('c', 9, TA_LEFT)),
         ]
         table_data.append(row)
     
     if len(table_data) < 6:
         for _ in range(6 - len(table_data)):
-            table_data.append(['', '', '', '', '', ''])
+            table_data.append(['', '', '', '', '', '', ''])
     
-    col_widths = [20*mm, 25*mm, 18*mm, 18*mm, 18*mm, 75*mm]
+    col_widths = [18*mm, 22*mm, 16*mm, 16*mm, 16*mm, 16*mm, 70*mm]
     
     table = Table(table_data, colWidths=col_widths)
     table.setStyle(TableStyle([
