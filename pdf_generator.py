@@ -413,3 +413,149 @@ def generate_pdf(data, app_type):
         filename = f"{company_prefix}{date_str}_{site_name}_{type_suffix}.pdf"
         output_path = os.path.join('output', filename)
         return generate_supplies_pdf(data, output_path)
+
+
+def generate_application_history_pdf(df, month_label):
+    """신청내역 PDF 생성 - BytesIO 반환"""
+    from io import BytesIO
+    import pandas as pd
+    
+    buffer = BytesIO()
+    
+    register_korean_fonts()
+    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=15*mm,
+        leftMargin=15*mm,
+        topMargin=15*mm,
+        bottomMargin=15*mm
+    )
+    
+    elements = []
+    
+    title_style = get_korean_style('title', 16, TA_CENTER, bold=True)
+    elements.append(Paragraph(f"신청 내역 현황 ({month_label})", title_style))
+    elements.append(Spacer(1, 10*mm))
+    
+    header = [
+        Paragraph('날짜', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('법인', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('현장명', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('신청자', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('구분', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('품목명', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('수량', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        Paragraph('금액', get_korean_style('h', 8, TA_CENTER, bold=True)),
+    ]
+    
+    table_data = [header]
+    
+    total_amount = 0
+    for _, row in df.iterrows():
+        date_str = pd.to_datetime(row['날짜']).strftime('%Y-%m-%d') if pd.notna(row['날짜']) else ''
+        amount = int(row['합계금액']) if pd.notna(row['합계금액']) else 0
+        total_amount += amount
+        
+        table_row = [
+            Paragraph(date_str, get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(str(row['법인명']) if pd.notna(row['법인명']) else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(str(row['현장명']) if pd.notna(row['현장명']) else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(str(row['신청자']) if pd.notna(row['신청자']) else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(str(row['구분']) if pd.notna(row['구분']) else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(str(row['품목명']) if pd.notna(row['품목명']) else '', get_korean_style('c', 7, TA_LEFT)),
+            Paragraph(str(int(row['수량'])) if pd.notna(row['수량']) else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(f"{amount:,}" if amount > 0 else '', get_korean_style('c', 7, TA_RIGHT)),
+        ]
+        table_data.append(table_row)
+    
+    table_data.append([
+        Paragraph('합계', get_korean_style('h', 8, TA_CENTER, bold=True)),
+        '', '', '', '', '', '',
+        Paragraph(f"{total_amount:,}원", get_korean_style('h', 8, TA_RIGHT, bold=True)),
+    ])
+    
+    col_widths = [22*mm, 15*mm, 30*mm, 18*mm, 15*mm, 45*mm, 12*mm, 23*mm]
+    
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'NanumGothic', 7),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.lightgrey),
+        ('ROWHEIGHT', (0, 0), (-1, -1), 8*mm),
+    ]))
+    
+    elements.append(table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+def generate_monthly_summary_pdf(df, company, month_columns):
+    """월별 집계 PDF 생성 - BytesIO 반환"""
+    from io import BytesIO
+    
+    buffer = BytesIO()
+    
+    register_korean_fonts()
+    
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=(A4[1], A4[0]),
+        rightMargin=10*mm,
+        leftMargin=10*mm,
+        topMargin=10*mm,
+        bottomMargin=10*mm
+    )
+    
+    elements = []
+    
+    title_style = get_korean_style('title', 16, TA_CENTER, bold=True)
+    elements.append(Paragraph(f"{company} 월별 집계 현황", title_style))
+    elements.append(Spacer(1, 8*mm))
+    
+    header = [Paragraph('현장명', get_korean_style('h', 8, TA_CENTER, bold=True)),
+              Paragraph('예산', get_korean_style('h', 8, TA_CENTER, bold=True))]
+    for month in month_columns:
+        header.append(Paragraph(month, get_korean_style('h', 8, TA_CENTER, bold=True)))
+    header.append(Paragraph('합계', get_korean_style('h', 8, TA_CENTER, bold=True)))
+    
+    table_data = [header]
+    
+    grand_total = 0
+    for _, row in df.iterrows():
+        row_total = sum([int(row.get(m, 0) or 0) for m in month_columns])
+        grand_total += row_total
+        
+        table_row = [
+            Paragraph(str(row['site_name']) if 'site_name' in row else '', get_korean_style('c', 7, TA_CENTER)),
+            Paragraph(f"{int(row.get('budget', 0) or 0):,}", get_korean_style('c', 7, TA_RIGHT)),
+        ]
+        for month in month_columns:
+            val = int(row.get(month, 0) or 0)
+            table_row.append(Paragraph(f"{val:,}" if val > 0 else '', get_korean_style('c', 7, TA_RIGHT)))
+        table_row.append(Paragraph(f"{row_total:,}", get_korean_style('c', 7, TA_RIGHT, bold=True)))
+        table_data.append(table_row)
+    
+    col_widths = [35*mm, 20*mm] + [18*mm] * len(month_columns) + [22*mm]
+    
+    table = Table(table_data, colWidths=col_widths, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('FONT', (0, 0), (-1, -1), 'NanumGothic', 7),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('ROWHEIGHT', (0, 0), (-1, -1), 7*mm),
+    ]))
+    
+    elements.append(table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer

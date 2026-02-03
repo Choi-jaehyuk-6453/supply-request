@@ -1065,12 +1065,44 @@ elif menu == "신청내역조회":
             ).reset_index()
             grouped['품목수'] = filtered_df.groupby(['날짜', '법인명', '현장명', '신청자', '구분']).size().values
             
-            col_metric1, col_metric2 = st.columns(2)
+            col_metric1, col_metric2, col_export1, col_export2 = st.columns([1, 1, 1, 1])
             with col_metric1:
                 st.metric("총 건수", f"{len(grouped)}건")
             with col_metric2:
                 unique_sites = filtered_df['현장명'].nunique()
                 st.metric("현장 수", f"{unique_sites}개")
+            
+            with col_export1:
+                export_df = filtered_df[['날짜', '법인명', '현장명', '신청자', '구분', '품목명', '규격', '수량', '단가', '합계금액']].copy()
+                export_df['날짜'] = pd.to_datetime(export_df['날짜']).dt.strftime('%Y-%m-%d')
+                
+                from io import BytesIO
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    export_df.to_excel(writer, index=False, sheet_name='신청내역')
+                excel_buffer.seek(0)
+                
+                month_label = selected_month if selected_month != '전체' else datetime.now().strftime('%Y-%m')
+                st.download_button(
+                    label="📊 엑셀 다운로드",
+                    data=excel_buffer,
+                    file_name=f"신청내역_{month_label}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            
+            with col_export2:
+                from pdf_generator import generate_application_history_pdf
+                pdf_buffer = generate_application_history_pdf(filtered_df, selected_month if selected_month != '전체' else '전체')
+                month_label = selected_month if selected_month != '전체' else datetime.now().strftime('%Y-%m')
+                st.download_button(
+                    label="📄 PDF 다운로드",
+                    data=pdf_buffer,
+                    file_name=f"신청내역_{month_label}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
             header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4, 0.4])
@@ -1303,7 +1335,7 @@ elif menu == "월별 집계":
             
             st.divider()
             
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+            col_m1, col_m2, col_m3, col_m4, col_exp1, col_exp2 = st.columns([1, 1, 1, 1, 1, 1])
             with col_m1:
                 total_budget = df_display['예산'].sum() if '예산' in df_display.columns else 0
                 st.metric("총 예산", f"{total_budget:,}원")
@@ -1316,6 +1348,34 @@ elif menu == "월별 집계":
             with col_m4:
                 usage_rate = (total_used / total_budget * 100) if total_budget > 0 else 0
                 st.metric("사용률", f"{usage_rate:.1f}%")
+            
+            with col_exp1:
+                from io import BytesIO
+                excel_buffer = BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df_display.to_excel(writer, index=False, sheet_name=f'{summary_type}_{company_filter}')
+                excel_buffer.seek(0)
+                
+                st.download_button(
+                    label="📊 엑셀",
+                    data=excel_buffer,
+                    file_name=f"월별집계_{summary_type}_{company_filter}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            
+            with col_exp2:
+                from pdf_generator import generate_monthly_summary_pdf
+                month_cols = ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월']
+                export_df_for_pdf = df_display.rename(columns={'구분': 'company', '현장명': 'site_name', '예산': 'budget'})
+                pdf_buffer = generate_monthly_summary_pdf(export_df_for_pdf, f"{summary_type} ({company_filter})", month_cols)
+                st.download_button(
+                    label="📄 PDF",
+                    data=pdf_buffer,
+                    file_name=f"월별집계_{summary_type}_{company_filter}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
         else:
             st.info("집계할 데이터가 없습니다.")
     
