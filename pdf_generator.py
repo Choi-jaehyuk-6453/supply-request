@@ -496,7 +496,7 @@ def generate_application_history_pdf(df, month_label):
     return buffer
 
 
-def generate_monthly_summary_pdf(df, company, month_columns):
+def generate_monthly_summary_pdf(df, company, month_columns, total_budget=0, total_used=0, usage_rate=0):
     """월별 집계 PDF 생성 - BytesIO 반환"""
     from io import BytesIO
     
@@ -527,10 +527,17 @@ def generate_monthly_summary_pdf(df, company, month_columns):
     
     table_data = [header]
     
-    grand_total = 0
+    grand_total_budget = 0
+    grand_total_used = 0
+    month_totals = {m: 0 for m in month_columns}
+    
     for _, row in df.iterrows():
         row_total = sum([int(row.get(m, 0) or 0) for m in month_columns])
-        grand_total += row_total
+        grand_total_used += row_total
+        grand_total_budget += int(row.get('budget', 0) or 0)
+        
+        for month in month_columns:
+            month_totals[month] += int(row.get(month, 0) or 0)
         
         table_row = [
             Paragraph(str(row['site_name']) if 'site_name' in row else '', get_korean_style('c', 7, TA_CENTER)),
@@ -542,6 +549,15 @@ def generate_monthly_summary_pdf(df, company, month_columns):
         table_row.append(Paragraph(f"{row_total:,}", get_korean_style('c', 7, TA_RIGHT, bold=True)))
         table_data.append(table_row)
     
+    totals_row = [
+        Paragraph('합계', get_korean_style('c', 8, TA_CENTER, bold=True)),
+        Paragraph(f"{grand_total_budget:,}", get_korean_style('c', 7, TA_RIGHT, bold=True)),
+    ]
+    for month in month_columns:
+        totals_row.append(Paragraph(f"{month_totals[month]:,}" if month_totals[month] > 0 else '', get_korean_style('c', 7, TA_RIGHT, bold=True)))
+    totals_row.append(Paragraph(f"{grand_total_used:,}", get_korean_style('c', 7, TA_RIGHT, bold=True)))
+    table_data.append(totals_row)
+    
     col_widths = [35*mm, 20*mm] + [18*mm] * len(month_columns) + [22*mm]
     
     table = Table(table_data, colWidths=col_widths, repeatRows=1)
@@ -551,10 +567,16 @@ def generate_monthly_summary_pdf(df, company, month_columns):
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('BACKGROUND', (0, -1), (-1, -1), colors.lightyellow),
         ('ROWHEIGHT', (0, 0), (-1, -1), 7*mm),
     ]))
     
     elements.append(table)
+    
+    elements.append(Spacer(1, 5*mm))
+    summary_text = f"총예산: {total_budget:,}원  |  총사용: {total_used:,}원  |  사용률: {usage_rate:.1f}%"
+    summary_style = get_korean_style('summary', 10, TA_RIGHT, bold=True)
+    elements.append(Paragraph(summary_text, summary_style))
     
     doc.build(elements)
     buffer.seek(0)
