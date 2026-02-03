@@ -1300,12 +1300,15 @@ elif menu == "월별 집계":
             key="summary_type_radio"
         )
         
-        col_filter, col_exp1, col_exp2 = st.columns([2, 1, 1])
+        col_label, col_filter, col_exp1, col_exp2 = st.columns([0.7, 1.3, 1, 1])
+        with col_label:
+            st.markdown("<div style='padding-top: 8px;'>법인 선택</div>", unsafe_allow_html=True)
         with col_filter:
             company_filter = st.selectbox(
                 "법인 선택",
                 options=["전체", "미래", "다원"],
-                key="summary_company_filter"
+                key="summary_company_filter",
+                label_visibility="collapsed"
             )
         
         sheet_key = '피복' if summary_type == '피복' else '경비물품'
