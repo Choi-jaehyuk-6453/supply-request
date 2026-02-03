@@ -289,10 +289,36 @@ with st.sidebar:
         key="menu_radio"
     )
 
+if 'previous_menu' not in st.session_state:
+    st.session_state.previous_menu = menu
+if st.session_state.previous_menu != menu:
+    st.session_state.delete_confirm = None
+    st.session_state.previous_menu = menu
+
 st.markdown('<p class="main-header">경비용품 및 피복 신청 관리 시스템</p>', unsafe_allow_html=True)
 st.markdown(f'<p class="sub-header">현재 선택: {company} ABM / {app_type} 신청</p>', unsafe_allow_html=True)
 
 if menu == "신청서 작성":
+    
+    if 'delete_confirm' not in st.session_state:
+        st.session_state.delete_confirm = None
+    
+    if st.session_state.delete_confirm and st.session_state.delete_confirm.get('type') == 'draft':
+        confirm_data = st.session_state.delete_confirm
+        st.warning(f"⚠️ 정말 '{confirm_data['name']}' 임시저장을 삭제하시겠습니까?")
+        
+        col_confirm, col_cancel = st.columns(2)
+        with col_confirm:
+            if st.button("✅ 삭제 확인", key="confirm_delete_draft", type="primary"):
+                delete_draft(confirm_data['id'])
+                st.session_state.delete_confirm = None
+                st.success("삭제되었습니다.")
+                st.rerun()
+        with col_cancel:
+            if st.button("❌ 취소", key="cancel_delete_draft"):
+                st.session_state.delete_confirm = None
+                st.rerun()
+        st.divider()
     
     drafts = get_draft_list()
     if drafts:
@@ -346,8 +372,7 @@ if menu == "신청서 작성":
                             st.rerun()
                 with col_d3:
                     if st.button("삭제", key=f"del_draft_{draft['id']}"):
-                        delete_draft(draft['id'])
-                        st.success("삭제되었습니다.")
+                        st.session_state.delete_confirm = {'type': 'draft', 'id': draft['id'], 'name': draft.get('site_name', '임시저장')}
                         st.rerun()
     
     draft_meta = st.session_state.draft_metadata
@@ -924,65 +949,38 @@ if menu == "신청서 작성":
 elif menu == "신청내역조회":
     st.subheader("신청 내역 조회")
     
-    if 'view_pdf_data' in st.session_state and st.session_state.view_pdf_data:
-        pdf_info = st.session_state.view_pdf_data
-        st.markdown("---")
-        st.markdown(f"### 📋 신청 상세 내역 - {pdf_info['date']} {pdf_info['site']} ({pdf_info['type']})")
+    if 'delete_confirm' not in st.session_state:
+        st.session_state.delete_confirm = None
+    
+    if st.session_state.delete_confirm and st.session_state.delete_confirm.get('type') == 'application':
+        confirm_data = st.session_state.delete_confirm
+        st.warning(f"⚠️ 정말 삭제하시겠습니까?\n\n"
+                   f"**날짜:** {confirm_data['date']}\n\n"
+                   f"**현장:** {confirm_data['site']}\n\n"
+                   f"**신청자:** {confirm_data['applicant']}\n\n"
+                   f"**구분:** {confirm_data['app_type']}")
         
-        df_all = get_master_data()
-        if not df_all.empty:
-            df_all['날짜'] = pd.to_datetime(df_all['날짜'], errors='coerce')
-            df_all['날짜_str'] = df_all['날짜'].dt.strftime('%Y-%m-%d')
-            
-            app_items = df_all[
-                (df_all['날짜_str'] == pdf_info['date']) & 
-                (df_all['현장명'] == pdf_info['site']) & 
-                (df_all['신청자'] == pdf_info['applicant']) &
-                (df_all['구분'] == pdf_info['type'])
-            ]
-            
-            if not app_items.empty:
-                site_info = get_site_by_name(pdf_info['site'])
-                
-                col_info1, col_info2 = st.columns(2)
-                with col_info1:
-                    st.markdown(f"**법인:** {pdf_info['company']}")
-                    st.markdown(f"**현장명:** {pdf_info['site']}")
-                    st.markdown(f"**신청자:** {pdf_info['applicant']}")
-                with col_info2:
-                    st.markdown(f"**신청일:** {pdf_info['date']}")
-                    st.markdown(f"**구분:** {pdf_info['type']}")
-                    if site_info:
-                        st.markdown(f"**주소:** {site_info.get('address', '-')}")
-                
-                st.markdown("---")
-                st.markdown("**📦 신청 품목:**")
-                
-                total_amount = 0
-                for idx, (_, item_row) in enumerate(app_items.iterrows(), 1):
-                    qty = int(item_row['수량']) if pd.notna(item_row['수량']) else 0
-                    unit_price = int(item_row['단가']) if pd.notna(item_row['단가']) else 0
-                    amount = int(item_row['합계금액']) if pd.notna(item_row['합계금액']) else qty * unit_price
-                    total_amount += amount
-                    
-                    spec_str = f" ({item_row['규격']})" if pd.notna(item_row['규격']) and item_row['규격'] else ""
-                    price_str = f" - {amount:,}원" if amount > 0 else ""
-                    st.write(f"{idx}. {item_row['품목명']}{spec_str} x {qty}개{price_str}")
-                
-                if total_amount > 0:
-                    st.markdown(f"**총 금액: {total_amount:,}원**")
-                
-                st.markdown("---")
-                if st.button("닫기", key="close_pdf_view", type="primary"):
-                    st.session_state.view_pdf_data = None
-                    st.rerun()
-            else:
-                st.warning("해당 신청 내역을 찾을 수 없습니다.")
-                if st.button("닫기", key="close_pdf_view_not_found"):
-                    st.session_state.view_pdf_data = None
-                    st.rerun()
-        
-        st.markdown("---")
+        col_confirm, col_cancel = st.columns(2)
+        with col_confirm:
+            if st.button("✅ 삭제 확인", key="confirm_delete_app", type="primary"):
+                success, msg = delete_application(
+                    confirm_data['date'],
+                    confirm_data['site'],
+                    confirm_data['applicant'],
+                    confirm_data['app_type'],
+                    confirm_data['company']
+                )
+                st.session_state.delete_confirm = None
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+                st.rerun()
+        with col_cancel:
+            if st.button("❌ 취소", key="cancel_delete_app"):
+                st.session_state.delete_confirm = None
+                st.rerun()
+        st.divider()
     
     df = get_master_data()
     
@@ -1112,7 +1110,7 @@ elif menu == "신청내역조회":
             header_cols[3].markdown("**신청자**")
             header_cols[4].markdown("**품목**")
             header_cols[5].markdown("**품목수**")
-            header_cols[6].markdown("**조회**")
+            header_cols[6].markdown("**PDF**")
             header_cols[7].markdown("**재신청**")
             header_cols[8].markdown("**삭제**")
             
@@ -1131,29 +1129,38 @@ elif menu == "신청내역조회":
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 del_key = f"del_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 
-                if row_cols[6].button("📄", key=pdf_key):
-                    st.session_state.view_pdf_data = {
+                company = row['법인명']
+                date_str = row['날짜_str'].replace('-', '')
+                if row['구분'] == '피복':
+                    type_suffix = "경비원 피복 신청서"
+                else:
+                    type_suffix = "경비용품 신청서"
+                pdf_filename = f"[{company}]{date_str}_{row['현장명']}_{type_suffix}.pdf"
+                pdf_path = os.path.join('output', pdf_filename)
+                
+                if os.path.exists(pdf_path):
+                    with open(pdf_path, 'rb') as f:
+                        pdf_data = f.read()
+                    row_cols[6].download_button(
+                        label="📄",
+                        data=pdf_data,
+                        file_name=pdf_filename,
+                        mime="application/pdf",
+                        key=pdf_key
+                    )
+                else:
+                    row_cols[6].write("-")
+                
+                if row_cols[8].button("🗑️", key=del_key):
+                    st.session_state.delete_confirm = {
+                        'type': 'application',
                         'date': row['날짜_str'],
                         'site': row['현장명'],
                         'applicant': row['신청자'],
-                        'type': row['구분'],
+                        'app_type': row['구분'],
                         'company': row['법인명']
                     }
                     st.rerun()
-                
-                if row_cols[8].button("🗑️", key=del_key):
-                    success, msg = delete_application(
-                        row['날짜_str'], 
-                        row['현장명'], 
-                        row['신청자'], 
-                        row['구분'],
-                        row['법인명']
-                    )
-                    if success:
-                        st.success(msg)
-                        st.rerun()
-                    else:
-                        st.error(msg)
                 
                 if row_cols[7].button("✏️", key=btn_key):
                     display_df_temp = filtered_df.copy()
@@ -1442,24 +1449,45 @@ elif menu == "월별 집계":
         summary_data_for_delete = get_all_monthly_summary()
         df_sites = summary_data_for_delete.get('피복', pd.DataFrame())
         
+        if 'delete_confirm' not in st.session_state:
+            st.session_state.delete_confirm = None
+        
+        if st.session_state.delete_confirm and st.session_state.delete_confirm.get('type') == 'summary_site':
+            confirm_data = st.session_state.delete_confirm
+            st.warning(f"⚠️ 정말 '{confirm_data['site']}' ({confirm_data['company']}) 현장을 삭제하시겠습니까?")
+            
+            col_confirm, col_cancel = st.columns(2)
+            with col_confirm:
+                if st.button("✅ 삭제 확인", key="confirm_delete_summary_site", type="primary"):
+                    success, msg = delete_monthly_summary_site(confirm_data['site'], confirm_data['company'])
+                    st.session_state.delete_confirm = None
+                    if success:
+                        st.success(msg)
+                    else:
+                        st.error(msg)
+                    st.rerun()
+            with col_cancel:
+                if st.button("❌ 취소", key="cancel_delete_summary_site"):
+                    st.session_state.delete_confirm = None
+                    st.rerun()
+            st.divider()
+        
         if not df_sites.empty:
             site_list = df_sites[['구분', '현장명']].drop_duplicates()
             site_options = [f"{row['구분']} - {row['현장명']}" for _, row in site_list.iterrows()]
             
-            with st.form("delete_summary_site_form"):
+            col_select, col_btn = st.columns([3, 1])
+            with col_select:
                 selected_site_to_delete = st.selectbox("삭제할 현장 선택", options=site_options, key="delete_site_select")
-                
-                if st.form_submit_button("현장 삭제", type="secondary"):
+            with col_btn:
+                st.markdown("<div style='padding-top: 28px;'></div>", unsafe_allow_html=True)
+                if st.button("현장 삭제", type="secondary", use_container_width=True):
                     if selected_site_to_delete:
                         parts = selected_site_to_delete.split(" - ", 1)
                         del_company = parts[0]
                         del_site = parts[1]
-                        success, msg = delete_monthly_summary_site(del_site, del_company)
-                        if success:
-                            st.success(msg)
-                            st.rerun()
-                        else:
-                            st.error(msg)
+                        st.session_state.delete_confirm = {'type': 'summary_site', 'site': del_site, 'company': del_company}
+                        st.rerun()
         else:
             st.info("삭제할 현장이 없습니다.")
         
@@ -1500,6 +1528,35 @@ elif menu == "관리자 모드":
         st.session_state.edit_supply_product_id = None
     if 'edit_uniform_product_id' not in st.session_state:
         st.session_state.edit_uniform_product_id = None
+    if 'delete_confirm' not in st.session_state:
+        st.session_state.delete_confirm = None
+    
+    if st.session_state.delete_confirm and st.session_state.delete_confirm.get('type') in ['site', 'applicant', 'email', 'supply', 'uniform']:
+        confirm_data = st.session_state.delete_confirm
+        type_labels = {'site': '현장', 'applicant': '신청자', 'email': '수신자', 'supply': '경비용품', 'uniform': '피복품목'}
+        st.warning(f"⚠️ 정말 '{confirm_data['name']}' {type_labels[confirm_data['type']]}을(를) 삭제하시겠습니까?")
+        
+        col_confirm, col_cancel = st.columns(2)
+        with col_confirm:
+            if st.button("✅ 삭제 확인", key="confirm_delete_admin", type="primary"):
+                if confirm_data['type'] == 'site':
+                    delete_site(confirm_data['id'])
+                elif confirm_data['type'] == 'applicant':
+                    delete_applicant(confirm_data['id'])
+                elif confirm_data['type'] == 'email':
+                    delete_email_recipient(confirm_data['id'])
+                elif confirm_data['type'] == 'supply':
+                    delete_supply_product(confirm_data['id'])
+                elif confirm_data['type'] == 'uniform':
+                    delete_uniform_product(confirm_data['id'])
+                st.success(f"'{confirm_data['name']}'이(가) 삭제되었습니다.")
+                st.session_state.delete_confirm = None
+                st.rerun()
+        with col_cancel:
+            if st.button("❌ 취소", key="cancel_delete_admin"):
+                st.session_state.delete_confirm = None
+                st.rerun()
+        st.divider()
     
     admin_tab = st.tabs(["현장 관리", "신청자 관리", "수신자 이메일 관리", "경비용품 관리", "피복 품목 관리"])
     
@@ -1560,8 +1617,7 @@ elif menu == "관리자 모드":
                                 st.rerun()
                         with col_btn2:
                             if st.button("삭제", key=f"del_site_{site['id']}", type="secondary"):
-                                delete_site(site['id'])
-                                st.success(f"'{site['name']}' 현장이 삭제되었습니다.")
+                                st.session_state.delete_confirm = {'type': 'site', 'id': site['id'], 'name': site['name']}
                                 st.rerun()
         else:
             st.info("등록된 현장이 없습니다.")
@@ -1615,8 +1671,7 @@ elif menu == "관리자 모드":
                                 st.rerun()
                         with col_btn2:
                             if st.button("삭제", key=f"del_app_{app['id']}", type="secondary"):
-                                delete_applicant(app['id'])
-                                st.success(f"'{app['name']}' 신청자가 삭제되었습니다.")
+                                st.session_state.delete_confirm = {'type': 'applicant', 'id': app['id'], 'name': app['name']}
                                 st.rerun()
         else:
             st.info("등록된 신청자가 없습니다.")
@@ -1671,8 +1726,7 @@ elif menu == "관리자 모드":
                                 st.rerun()
                         with col_btn2:
                             if st.button("삭제", key=f"del_email_{recipient['id']}", type="secondary"):
-                                delete_email_recipient(recipient['id'])
-                                st.success(f"'{recipient['company_name']}' 수신자가 삭제되었습니다.")
+                                st.session_state.delete_confirm = {'type': 'email', 'id': recipient['id'], 'name': recipient['company_name']}
                                 st.rerun()
         else:
             st.info("등록된 수신자가 없습니다.")
@@ -1731,8 +1785,7 @@ elif menu == "관리자 모드":
                                 st.rerun()
                         with col_btn2:
                             if st.button("삭제", key=f"del_supply_{prod['id']}", type="secondary"):
-                                delete_supply_product(prod['id'])
-                                st.success(f"'{prod['name']}' 품목이 삭제되었습니다.")
+                                st.session_state.delete_confirm = {'type': 'supply', 'id': prod['id'], 'name': prod['name']}
                                 st.rerun()
         else:
             st.info("등록된 경비용품이 없습니다.")
@@ -1787,8 +1840,7 @@ elif menu == "관리자 모드":
                                 st.rerun()
                         with col_btn2:
                             if st.button("삭제", key=f"del_uniform_{prod['id']}", type="secondary"):
-                                delete_uniform_product(prod['id'])
-                                st.success(f"'{prod['name']}' 품목이 삭제되었습니다.")
+                                st.session_state.delete_confirm = {'type': 'uniform', 'id': prod['id'], 'name': prod['name']}
                                 st.rerun()
         else:
             st.info("등록된 피복 품목이 없습니다.")
