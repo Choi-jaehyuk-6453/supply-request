@@ -4,7 +4,7 @@ Replaces Excel-based storage for persistent data across deployments.
 """
 import os
 from datetime import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Float, Date, DateTime, Text
+from sqlalchemy import create_engine, Column, Integer, String, Float, Date, DateTime, Text, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
@@ -113,6 +113,19 @@ class EmailRecipient(Base):
     email = Column(String(200), nullable=False)
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime)
+
+
+class PdfFile(Base):
+    """PDF 파일 저장 테이블"""
+    __tablename__ = 'pdf_files'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    filename = Column(String(500), nullable=False, unique=True)
+    file_data = Column(LargeBinary, nullable=False)
+    app_type = Column(String(50))
+    company = Column(String(50))
+    site_name = Column(String(200))
+    created_at = Column(DateTime, default=datetime.now)
 
 
 def init_db():
@@ -1158,3 +1171,75 @@ def migrate_reference_data_to_db():
         session.rollback()
         session.close()
         return False, f"참조 데이터 마이그레이션 오류: {str(e)}"
+
+
+def save_pdf_to_db(filename, file_data, app_type=None, company=None, site_name=None):
+    """PDF 파일을 DB에 저장"""
+    session = get_session()
+    if not session:
+        return False
+    
+    try:
+        existing = session.query(PdfFile).filter_by(filename=filename).first()
+        if existing:
+            existing.file_data = file_data
+            existing.app_type = app_type
+            existing.company = company
+            existing.site_name = site_name
+        else:
+            pdf = PdfFile(
+                filename=filename,
+                file_data=file_data,
+                app_type=app_type,
+                company=company,
+                site_name=site_name
+            )
+            session.add(pdf)
+        session.commit()
+        session.close()
+        return True
+    except Exception as e:
+        session.rollback()
+        session.close()
+        print(f"PDF DB 저장 오류: {str(e)}")
+        return False
+
+
+def get_pdf_from_db(filename):
+    """DB에서 PDF 파일 데이터 가져오기"""
+    session = get_session()
+    if not session:
+        return None
+    
+    try:
+        pdf = session.query(PdfFile).filter_by(filename=filename).first()
+        if pdf:
+            data = bytes(pdf.file_data)
+            session.close()
+            return data
+        session.close()
+        return None
+    except Exception as e:
+        session.close()
+        print(f"PDF DB 조회 오류: {str(e)}")
+        return None
+
+
+def migrate_existing_pdfs_to_db():
+    """output/ 폴더의 기존 PDF 파일을 DB로 마이그레이션"""
+    output_dir = "output"
+    if not os.path.exists(output_dir):
+        return 0
+    
+    count = 0
+    for filename in os.listdir(output_dir):
+        if filename.endswith('.pdf'):
+            filepath = os.path.join(output_dir, filename)
+            try:
+                with open(filepath, 'rb') as f:
+                    file_data = f.read()
+                if save_pdf_to_db(filename, file_data):
+                    count += 1
+            except Exception as e:
+                print(f"PDF 마이그레이션 오류 ({filename}): {str(e)}")
+    return count

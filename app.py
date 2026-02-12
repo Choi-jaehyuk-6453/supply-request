@@ -14,7 +14,8 @@ from db_handler import (
     add_monthly_summary_site_db as add_monthly_summary_site,
     delete_monthly_summary_site_db as delete_monthly_summary_site,
     update_monthly_summary_budget_db as update_monthly_summary_budget,
-    delete_application_db as delete_application
+    delete_application_db as delete_application,
+    save_pdf_to_db, get_pdf_from_db, migrate_existing_pdfs_to_db
 )
 from reference_data import (
     get_sites, get_applicants, add_site, update_site, delete_site,
@@ -265,6 +266,9 @@ if 'db_initialized' not in st.session_state:
     init_db()
     migrate_excel_to_db()
     migrate_reference_data_to_db()
+    migrated_count = migrate_existing_pdfs_to_db()
+    if migrated_count > 0:
+        print(f"기존 PDF {migrated_count}개 DB로 마이그레이션 완료")
     st.session_state.db_initialized = True
 
 menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관리자 모드"]
@@ -848,6 +852,16 @@ if menu == "신청서 작성":
                     st.session_state.form_data = form_data
                     st.session_state.items = items
                     
+                    if os.path.exists(pdf_path):
+                        with open(pdf_path, 'rb') as f:
+                            save_pdf_to_db(
+                                os.path.basename(pdf_path),
+                                f.read(),
+                                app_type=app_type,
+                                company=form_data.get('company', ''),
+                                site_name=form_data.get('site_name', '')
+                            )
+                    
                     success, message = append_to_master(
                         form_data.get('application_date', ''),
                         app_type,
@@ -1145,9 +1159,14 @@ elif menu == "신청내역조회":
                 pdf_filename = f"[{company}]{date_str}_{row['현장명']}_{type_suffix}.pdf"
                 pdf_path = os.path.join('output', pdf_filename)
                 
+                pdf_data = None
                 if os.path.exists(pdf_path):
                     with open(pdf_path, 'rb') as f:
                         pdf_data = f.read()
+                else:
+                    pdf_data = get_pdf_from_db(pdf_filename)
+                
+                if pdf_data:
                     row_cols[6].download_button(
                         label="📄",
                         data=pdf_data,
