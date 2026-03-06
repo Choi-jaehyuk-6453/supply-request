@@ -60,6 +60,12 @@ PostgreSQL 테이블 구조:
 - 앱 시작 시 자동으로 테이블 생성 및 기존 데이터 마이그레이션
 
 ## Recent Changes
+- 2026-03-06: 위젯 안정성 개선
+  - 품목 삭제 시 해당 행이 아닌 마지막 행이 삭제되는 버그 수정 (UUID 기반 위젯 키)
+  - 메뉴 이동 시 신청서 양식 초기화 (빈 양식으로 리셋)
+  - 사이드바 법인/유형 변경 시 폼 데이터 자동 초기화
+  - clear_form_state() 헬퍼 함수로 폼 초기화 로직 통합
+  - 각 아이템에 _id 필드(UUID) 부여하여 위젯 키 충돌 방지
 - 2026-02-12: PDF 파일 영구 저장 (PostgreSQL)
   - PDF 파일을 데이터베이스에 저장하여 배포 후에도 영구 보존
   - pdf_files 테이블 추가 (filename, file_data, app_type, company, site_name)

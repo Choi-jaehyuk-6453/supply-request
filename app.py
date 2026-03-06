@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, date
 import os
+import uuid
 
 from pdf_generator import generate_pdf
 from email_sender import send_application_email, get_default_email
@@ -275,6 +276,25 @@ menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관�
 company_options = ["미래", "다원"]
 app_type_options = ["경비물품", "피복"]
 
+def _new_item_id():
+    return str(uuid.uuid4())[:8]
+
+def clear_form_state():
+    st.session_state.loaded_draft_id = None
+    st.session_state.pdf_generated = False
+    st.session_state.pdf_path = None
+    st.session_state.form_data = None
+    st.session_state.draft_metadata = None
+    for key in list(st.session_state.keys()):
+        if key.startswith(('sup_select_', 'sup_name_', 'sup_spec_', 'sup_qty_', 'del_sup_',
+                           'job_', 'pos_', 'worker_', 'top_', 'bot_', 'hat_', 'shoe_', 'del_',
+                           'unif_select_', 'unif_qty_', 'prod_', 'add_prod_', 'del_prod_')):
+            del st.session_state[key]
+    if 'supplies_items' in st.session_state:
+        del st.session_state.supplies_items
+    if 'uniform_items' in st.session_state:
+        del st.session_state.uniform_items
+
 if 'pending_menu' in st.session_state:
     st.session_state.menu_radio = st.session_state.pending_menu
     del st.session_state.pending_menu
@@ -316,9 +336,21 @@ with st.sidebar:
 
 if 'previous_menu' not in st.session_state:
     st.session_state.previous_menu = menu
+if 'previous_company' not in st.session_state:
+    st.session_state.previous_company = company
+if 'previous_app_type' not in st.session_state:
+    st.session_state.previous_app_type = app_type
+
 if st.session_state.previous_menu != menu:
     st.session_state.pending_delete = None
+    if menu == "신청서 작성":
+        clear_form_state()
     st.session_state.previous_menu = menu
+
+if st.session_state.previous_company != company or st.session_state.previous_app_type != app_type:
+    clear_form_state()
+    st.session_state.previous_company = company
+    st.session_state.previous_app_type = app_type
 
 if 'pending_delete' not in st.session_state:
     st.session_state.pending_delete = None
@@ -558,19 +590,23 @@ if menu == "신청서 작성":
         
         if 'supplies_items' not in st.session_state:
             st.session_state.supplies_items = [
-                {'품목명': '', '규격': '', '수량': 1}
+                {'_id': _new_item_id(), '품목명': '', '규격': '', '수량': 1}
             ]
+        for item in st.session_state.supplies_items:
+            if '_id' not in item:
+                item['_id'] = _new_item_id()
         
         col_add_sup, col_del_sup = st.columns([1, 5])
         with col_add_sup:
             if st.button("➕ 행 추가", use_container_width=True, key="add_supply"):
-                st.session_state.supplies_items.append({'품목명': '', '규격': '', '수량': 1})
+                st.session_state.supplies_items.append({'_id': _new_item_id(), '품목명': '', '규격': '', '수량': 1})
                 st.rerun()
         
         st.markdown("**No | 품목 선택 | 규격 | 수량 | 삭제**")
         
         supplies_to_delete = []
         for idx, item in enumerate(st.session_state.supplies_items):
+            iid = item['_id']
             with st.container():
                 cols = st.columns([0.5, 3, 2, 1, 0.5])
                 with cols[0]:
@@ -581,26 +617,31 @@ if menu == "신청서 작성":
                         default_idx = supply_options.index(current_product)
                     else:
                         default_idx = 0
-                    selected = st.selectbox('품목', supply_options, index=default_idx, key=f"sup_select_{idx}", label_visibility="collapsed")
+                    selected = st.selectbox('품목', supply_options, index=default_idx, key=f"sup_select_{iid}", label_visibility="collapsed")
                     
                     if selected == "직접 입력":
-                        item['품목명'] = st.text_input('품목명', value=item.get('품목명', '') if item.get('품목명', '') not in supply_options else '', key=f"sup_name_{idx}", label_visibility="collapsed", placeholder="품목명 입력")
+                        item['품목명'] = st.text_input('품목명', value=item.get('품목명', '') if item.get('품목명', '') not in supply_options else '', key=f"sup_name_{iid}", label_visibility="collapsed", placeholder="품목명 입력")
                     else:
                         item['품목명'] = selected
                         product_info = get_supply_product_by_name(selected)
                         if product_info and product_info.get('spec'):
                             item['규격'] = product_info.get('spec', '')
                 with cols[2]:
-                    item['규격'] = st.text_input('규격', value=item.get('규격', ''), key=f"sup_spec_{idx}", label_visibility="collapsed", placeholder="규격/옵션")
+                    item['규격'] = st.text_input('규격', value=item.get('규격', ''), key=f"sup_spec_{iid}", label_visibility="collapsed", placeholder="규격/옵션")
                 with cols[3]:
-                    item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"sup_qty_{idx}", label_visibility="collapsed")
+                    item['수량'] = st.number_input('수량', value=item.get('수량', 1), min_value=1, key=f"sup_qty_{iid}", label_visibility="collapsed")
                 with cols[4]:
-                    if st.button("🗑️", key=f"del_sup_{idx}"):
+                    if st.button("🗑️", key=f"del_sup_{iid}"):
                         supplies_to_delete.append(idx)
         
         if supplies_to_delete:
             for idx in sorted(supplies_to_delete, reverse=True):
-                st.session_state.supplies_items.pop(idx)
+                deleted_item = st.session_state.supplies_items.pop(idx)
+                did = deleted_item['_id']
+                for prefix in ('sup_select_', 'sup_name_', 'sup_spec_', 'sup_qty_', 'del_sup_'):
+                    wkey = f"{prefix}{did}"
+                    if wkey in st.session_state:
+                        del st.session_state[wkey]
             st.rerun()
         
         edited_supplies = pd.DataFrame(st.session_state.supplies_items)
@@ -618,80 +659,84 @@ if menu == "신청서 작성":
         
         if 'uniform_items' not in st.session_state:
             st.session_state.uniform_items = [
-                {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
+                {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                  '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
             ]
         
         for item in st.session_state.uniform_items:
             if 'product_count' not in item:
                 item['product_count'] = 3
+            if '_id' not in item:
+                item['_id'] = _new_item_id()
         
         col_add, col_copy, col_space = st.columns([1, 1, 4])
         with col_add:
             if st.button("➕ 행 추가", use_container_width=True):
                 st.session_state.uniform_items.append(
-                    {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
+                    {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                      '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                 )
                 st.rerun()
         with col_copy:
             if st.button("📋 복사 행추가", use_container_width=True, help="마지막 신청자 품목 복사"):
                 if st.session_state.uniform_items:
-                    last_idx = len(st.session_state.uniform_items) - 1
                     last_item = st.session_state.uniform_items[-1]
+                    last_iid = last_item['_id']
                     product_count = last_item.get('product_count', 3)
                     
                     new_item = {
-                        '업종': st.session_state.get(f'job_{last_idx}', last_item.get('업종', '경비직')),
-                        '직책': st.session_state.get(f'pos_{last_idx}', last_item.get('직책', '경비원')),
+                        '_id': _new_item_id(),
+                        '업종': st.session_state.get(f'job_{last_iid}', last_item.get('업종', '경비직')),
+                        '직책': st.session_state.get(f'pos_{last_iid}', last_item.get('직책', '경비원')),
                         '근무자': '',
-                        '상의': st.session_state.get(f'top_{last_idx}', last_item.get('상의', '100')),
-                        '하의': st.session_state.get(f'bot_{last_idx}', last_item.get('하의', '32')),
-                        '모자': st.session_state.get(f'hat_{last_idx}', last_item.get('모자', '중')),
-                        '신발': st.session_state.get(f'shoe_{last_idx}', last_item.get('신발', '선택없음')),
+                        '상의': st.session_state.get(f'top_{last_iid}', last_item.get('상의', '100')),
+                        '하의': st.session_state.get(f'bot_{last_iid}', last_item.get('하의', '32')),
+                        '모자': st.session_state.get(f'hat_{last_iid}', last_item.get('모자', '중')),
+                        '신발': st.session_state.get(f'shoe_{last_iid}', last_item.get('신발', '선택없음')),
                         'product_count': product_count
                     }
                     for i in range(1, product_count + 1):
-                        widget_prod_key = f'unif_select_{last_idx}_{i}'
-                        widget_qty_key = f'unif_qty_{last_idx}_{i}'
+                        widget_prod_key = f'unif_select_{last_iid}_{i}'
+                        widget_qty_key = f'unif_qty_{last_iid}_{i}'
                         prod_value = st.session_state.get(widget_prod_key, last_item.get(f'품목{i}', ''))
                         qty_value = st.session_state.get(widget_qty_key, last_item.get(f'수량{i}', 0))
                         if prod_value == '선택 안함':
                             prod_value = ''
                         elif prod_value == '직접 입력':
-                            prod_value = st.session_state.get(f'prod_{last_idx}_{i}', last_item.get(f'품목{i}', ''))
+                            prod_value = st.session_state.get(f'prod_{last_iid}_{i}', last_item.get(f'품목{i}', ''))
                         new_item[f'품목{i}'] = prod_value
                         new_item[f'수량{i}'] = qty_value
                     st.session_state.uniform_items.append(new_item)
                     st.rerun()
                 else:
                     st.session_state.uniform_items.append(
-                        {'업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
+                        {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
                          '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
                     )
                     st.rerun()
         
         items_to_delete = []
         for idx, item in enumerate(st.session_state.uniform_items):
+            iid = item['_id']
             with st.container():
                 st.markdown(f"##### 신청자 {idx+1}")
                 cols1 = st.columns([1, 1, 1.5, 0.7, 0.7, 0.6, 0.7, 0.4])
                 with cols1[0]:
-                    item['업종'] = st.selectbox('업종', ['관리직', '경비직'], index=['관리직', '경비직'].index(item.get('업종', '경비직')), key=f"job_{idx}")
+                    item['업종'] = st.selectbox('업종', ['관리직', '경비직'], index=['관리직', '경비직'].index(item.get('업종', '경비직')), key=f"job_{iid}")
                 with cols1[1]:
-                    item['직책'] = st.text_input('직책', value=item.get('직책', '경비원'), key=f"pos_{idx}")
+                    item['직책'] = st.text_input('직책', value=item.get('직책', '경비원'), key=f"pos_{iid}")
                 with cols1[2]:
-                    item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{idx}", placeholder="이름")
+                    item['근무자'] = st.text_input('근무자', value=item.get('근무자', ''), key=f"worker_{iid}", placeholder="이름")
                 with cols1[3]:
-                    item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 4, key=f"top_{idx}")
+                    item['상의'] = st.selectbox('상의', top_sizes, index=top_sizes.index(item.get('상의', '100')) if item.get('상의', '100') in top_sizes else 4, key=f"top_{iid}")
                 with cols1[4]:
-                    item['하의'] = st.selectbox('하의', bottom_sizes, index=bottom_sizes.index(item.get('하의', '32')) if item.get('하의', '32') in bottom_sizes else 4, key=f"bot_{idx}")
+                    item['하의'] = st.selectbox('하의', bottom_sizes, index=bottom_sizes.index(item.get('하의', '32')) if item.get('하의', '32') in bottom_sizes else 4, key=f"bot_{iid}")
                 with cols1[5]:
-                    item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 2, key=f"hat_{idx}")
+                    item['모자'] = st.selectbox('모자', hat_sizes, index=hat_sizes.index(item.get('모자', '중')) if item.get('모자', '중') in hat_sizes else 2, key=f"hat_{iid}")
                 with cols1[6]:
-                    item['신발'] = st.selectbox('신발', shoe_sizes, index=shoe_sizes.index(item.get('신발', '선택없음')) if item.get('신발', '선택없음') in shoe_sizes else 0, key=f"shoe_{idx}")
+                    item['신발'] = st.selectbox('신발', shoe_sizes, index=shoe_sizes.index(item.get('신발', '선택없음')) if item.get('신발', '선택없음') in shoe_sizes else 0, key=f"shoe_{iid}")
                 with cols1[7]:
-                    if st.button("🗑️", key=f"del_{idx}", help="신청자 삭제"):
+                    if st.button("🗑️", key=f"del_{iid}", help="신청자 삭제"):
                         items_to_delete.append(idx)
                 
                 product_count = item.get('product_count', 3)
@@ -716,23 +761,23 @@ if menu == "신청서 작성":
                                 default_uniform_idx = uniform_options.index(current_uniform)
                             else:
                                 default_uniform_idx = 0
-                            selected_uniform = st.selectbox(f'품목{i}', uniform_options, index=default_uniform_idx, key=f"unif_select_{idx}_{i}")
+                            selected_uniform = st.selectbox(f'품목{i}', uniform_options, index=default_uniform_idx, key=f"unif_select_{iid}_{i}")
                             
                             if selected_uniform == "직접 입력":
-                                item[prod_key] = st.text_input(f'품목{i} 입력', value=item.get(prod_key, '') if item.get(prod_key, '') not in uniform_options else '', key=f"prod_{idx}_{i}", label_visibility="collapsed", placeholder="품목 입력")
+                                item[prod_key] = st.text_input(f'품목{i} 입력', value=item.get(prod_key, '') if item.get(prod_key, '') not in uniform_options else '', key=f"prod_{iid}_{i}", label_visibility="collapsed", placeholder="품목 입력")
                             elif selected_uniform == "선택 안함":
                                 item[prod_key] = ''
                             else:
                                 item[prod_key] = selected_uniform
                         
                         with cols2[col_idx + 1]:
-                            item[qty_key] = st.number_input(f'수량{i}', value=item.get(qty_key, 0), min_value=0, key=f"unif_qty_{idx}_{i}")
+                            item[qty_key] = st.number_input(f'수량{i}', value=item.get(qty_key, 0), min_value=0, key=f"unif_qty_{iid}_{i}")
                         
                         col_idx += 2
                 
                 btn_cols = st.columns([1, 1, 4])
                 with btn_cols[0]:
-                    if st.button("➕ 품목추가", key=f"add_prod_{idx}", help="품목 추가"):
+                    if st.button("➕ 품목추가", key=f"add_prod_{iid}", help="품목 추가"):
                         item['product_count'] = item.get('product_count', 3) + 1
                         new_prod_key = f"품목{item['product_count']}"
                         new_qty_key = f"수량{item['product_count']}"
@@ -741,13 +786,16 @@ if menu == "신청서 작성":
                         st.rerun()
                 with btn_cols[1]:
                     if product_count > 1:
-                        if st.button("➖ 품목삭제", key=f"del_prod_{idx}", help="마지막 품목 삭제"):
+                        if st.button("➖ 품목삭제", key=f"del_prod_{iid}", help="마지막 품목 삭제"):
                             last_prod_key = f"품목{product_count}"
                             last_qty_key = f"수량{product_count}"
                             if last_prod_key in item:
                                 del item[last_prod_key]
                             if last_qty_key in item:
                                 del item[last_qty_key]
+                            for wkey_prefix in (f'unif_select_{iid}_{product_count}', f'unif_qty_{iid}_{product_count}', f'prod_{iid}_{product_count}'):
+                                if wkey_prefix in st.session_state:
+                                    del st.session_state[wkey_prefix]
                             item['product_count'] = product_count - 1
                             st.rerun()
                 
@@ -755,7 +803,19 @@ if menu == "신청서 작성":
         
         if items_to_delete:
             for idx in sorted(items_to_delete, reverse=True):
-                st.session_state.uniform_items.pop(idx)
+                deleted_item = st.session_state.uniform_items.pop(idx)
+                did = deleted_item.get('_id', '')
+                if did:
+                    product_count = deleted_item.get('product_count', 3)
+                    for prefix in ('job_', 'pos_', 'worker_', 'top_', 'bot_', 'hat_', 'shoe_', 'del_', 'add_prod_', 'del_prod_'):
+                        wkey = f"{prefix}{did}"
+                        if wkey in st.session_state:
+                            del st.session_state[wkey]
+                    for i in range(1, product_count + 1):
+                        for prefix in ('unif_select_', 'unif_qty_', 'prod_'):
+                            wkey = f"{prefix}{did}_{i}"
+                            if wkey in st.session_state:
+                                del st.session_state[wkey]
             st.rerun()
         
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
@@ -911,15 +971,7 @@ if menu == "신청서 작성":
     
     with col_btn3:
         if st.button("🔄 새로 작성", use_container_width=True):
-            st.session_state.loaded_draft_id = None
-            st.session_state.pdf_generated = False
-            st.session_state.pdf_path = None
-            st.session_state.form_data = None
-            st.session_state.draft_metadata = None
-            if 'supplies_items' in st.session_state:
-                del st.session_state.supplies_items
-            if 'uniform_items' in st.session_state:
-                del st.session_state.uniform_items
+            clear_form_state()
             st.rerun()
     
     if st.session_state.pdf_generated and st.session_state.pdf_path:
@@ -1209,10 +1261,12 @@ elif menu == "신청내역조회":
                     reapply_applicant_info = get_applicant_by_name(row['신청자'])
                     reapply_applicant_contact = reapply_applicant_info.get('contact', '') if reapply_applicant_info else ''
                     
+                    clear_form_state()
                     if row['구분'] == '경비물품':
                         items_list = []
                         for _, item_row in app_items.iterrows():
                             items_list.append({
+                                '_id': _new_item_id(),
                                 '품목명': item_row['품목명'],
                                 '규격': str(item_row['규격']) if pd.notna(item_row['규격']) else '',
                                 '수량': int(item_row['수량']) if pd.notna(item_row['수량']) else 1
@@ -1266,6 +1320,7 @@ elif menu == "신청내역조회":
                         items_list = []
                         for spec_key, item_data in grouped_items.items():
                             uniform_item = {
+                                '_id': _new_item_id(),
                                 '업종': item_data['업종'],
                                 '직책': item_data['직책'],
                                 '근무자': item_data['근무자'],
