@@ -257,6 +257,8 @@ if 'edit_mode' not in st.session_state:
     st.session_state.edit_mode = False
 if 'draft_metadata' not in st.session_state:
     st.session_state.draft_metadata = None
+if 'form_version' not in st.session_state:
+    st.session_state.form_version = 0
 if 'selected_menu' not in st.session_state:
     st.session_state.selected_menu = "신청서 작성"
 if 'selected_company' not in st.session_state:
@@ -285,15 +287,17 @@ def clear_form_state():
     st.session_state.pdf_path = None
     st.session_state.form_data = None
     st.session_state.draft_metadata = None
+    st.session_state.form_version = st.session_state.get('form_version', 0) + 1
     for key in list(st.session_state.keys()):
         if key.startswith(('sup_select_', 'sup_name_', 'sup_spec_', 'sup_qty_', 'del_sup_',
                            'job_', 'pos_', 'worker_', 'top_', 'bot_', 'hat_', 'shoe_', 'del_',
-                           'unif_select_', 'unif_qty_', 'prod_', 'add_prod_', 'del_prod_')):
+                           'unif_select_', 'unif_qty_', 'prod_', 'add_prod_', 'del_prod_',
+                           'manual_site', 'manual_applicant',
+                           'site_select_', 'applicant_select_')):
             del st.session_state[key]
-    if 'supplies_items' in st.session_state:
-        del st.session_state.supplies_items
-    if 'uniform_items' in st.session_state:
-        del st.session_state.uniform_items
+    for key in ('supplies_items', 'uniform_items'):
+        if key in st.session_state:
+            del st.session_state[key]
 
 if 'pending_menu' in st.session_state:
     st.session_state.menu_radio = st.session_state.pending_menu
@@ -343,14 +347,18 @@ if 'previous_app_type' not in st.session_state:
 
 if st.session_state.previous_menu != menu:
     st.session_state.pending_delete = None
-    if menu == "신청서 작성":
+    if menu == "신청서 작성" and not st.session_state.get('reapply_pending'):
         clear_form_state()
     st.session_state.previous_menu = menu
 
 if st.session_state.previous_company != company or st.session_state.previous_app_type != app_type:
-    clear_form_state()
+    if not st.session_state.get('reapply_pending'):
+        clear_form_state()
     st.session_state.previous_company = company
     st.session_state.previous_app_type = app_type
+
+if st.session_state.get('reapply_pending'):
+    del st.session_state['reapply_pending']
 
 if 'pending_delete' not in st.session_state:
     st.session_state.pending_delete = None
@@ -410,6 +418,7 @@ if menu == "신청서 작성":
                         loaded = get_draft(draft['id'])
                         if loaded:
                             st.session_state.loaded_draft_id = draft['id']
+                            st.session_state.form_version = st.session_state.get('form_version', 0) + 1
                             if loaded.get('app_type') == '경비물품':
                                 st.session_state.supplies_items = loaded.get('items', [])
                             else:
@@ -451,6 +460,10 @@ if menu == "신청서 작성":
                     if st.button("삭제", key=f"del_draft_{draft['id']}"):
                         confirm_delete_dialog('draft', draft['id'], draft.get('site_name', '임시저장'))
     
+    if st.session_state.get('clear_form_pending'):
+        clear_form_state()
+        del st.session_state.clear_form_pending
+
     draft_meta = st.session_state.draft_metadata
     if draft_meta:
         st.info(f"📂 임시저장 데이터를 불러왔습니다: {draft_meta.get('site_name', '')}")
@@ -492,20 +505,21 @@ if menu == "신청서 작성":
         else:
             site_index = 0
         
+        fv = st.session_state.form_version
         selected_site = st.selectbox(
             "현장명 선택",
             options=site_names,
             index=site_index,
-            help="등록된 현장을 선택하거나 '직접 입력'을 선택하세요"
+            help="등록된 현장을 선택하거나 '직접 입력'을 선택하세요",
+            key=f"site_select_{fv}"
         )
-        
         if selected_site == "직접 입력":
             default_site_value = draft_site_name if draft_meta else ''
             site_name = st.text_input(
                 "현장명",
                 value=default_site_value,
                 placeholder="예: 고산센트레빌, 성남메트로칸",
-                key="manual_site"
+                key=f"manual_site_{fv}"
             )
         else:
             site_name = selected_site
@@ -523,7 +537,8 @@ if menu == "신청서 작성":
             "신청자 선택",
             options=applicant_names,
             index=applicant_index,
-            help="등록된 신청자를 선택하거나 '직접 입력'을 선택하세요"
+            help="등록된 신청자를 선택하거나 '직접 입력'을 선택하세요",
+            key=f"applicant_select_{fv}"
         )
         
         if selected_applicant == "직접 입력":
@@ -532,7 +547,7 @@ if menu == "신청서 작성":
                 "신청자",
                 value=default_applicant_value,
                 placeholder="예: 김솔휘 대리",
-                key="manual_applicant"
+                key=f"manual_applicant_{fv}"
             )
         else:
             applicant = selected_applicant
@@ -971,7 +986,7 @@ if menu == "신청서 작성":
     
     with col_btn3:
         if st.button("🔄 새로 작성", use_container_width=True):
-            clear_form_state()
+            st.session_state.clear_form_pending = True
             st.rerun()
     
     if st.session_state.pdf_generated and st.session_state.pdf_path:
@@ -1261,7 +1276,8 @@ elif menu == "신청내역조회":
                     reapply_applicant_info = get_applicant_by_name(row['신청자'])
                     reapply_applicant_contact = reapply_applicant_info.get('contact', '') if reapply_applicant_info else ''
                     
-                    clear_form_state()
+                    st.session_state.reapply_pending = True
+                    st.session_state.form_version = st.session_state.get('form_version', 0) + 1
                     if row['구분'] == '경비물품':
                         items_list = []
                         for _, item_row in app_items.iterrows():
