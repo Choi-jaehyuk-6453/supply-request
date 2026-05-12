@@ -525,6 +525,36 @@ def add_monthly_summary_site_db(site_name, company, uniform_budget, supply_budge
         return False, f"현장 추가 오류: {str(e)}"
 
 
+def sync_sites_to_monthly_summary_db():
+    """sites 테이블에 있지만 monthly_summary에 없는 현장을 자동으로 추가"""
+    session = get_session()
+    if not session:
+        return False, "데이터베이스 연결 오류"
+    try:
+        sites = session.query(Site).all()
+        added = []
+        for site in sites:
+            company = site.company or "미래"
+            existing = session.query(MonthlySummary).filter_by(
+                company=company,
+                site_name=site.name
+            ).first()
+            if not existing:
+                session.add(MonthlySummary(company=company, site_name=site.name, app_type='피복', budget=0))
+                session.add(MonthlySummary(company=company, site_name=site.name, app_type='경비물품', budget=0))
+                added.append(site.name)
+        session.commit()
+        session.close()
+        if added:
+            return True, f"{len(added)}개 현장 추가됨: {', '.join(added)}"
+        else:
+            return True, "동기화 완료 (추가할 현장 없음)"
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return False, f"동기화 오류: {str(e)}"
+
+
 def delete_monthly_summary_site_db(site_name, company):
     """월별 집계에서 현장 삭제"""
     session = get_session()

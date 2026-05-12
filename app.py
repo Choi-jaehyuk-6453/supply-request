@@ -13,6 +13,7 @@ from db_handler import (
     get_monthly_summary_db as get_monthly_summary,
     get_all_monthly_summary_db as get_all_monthly_summary,
     add_monthly_summary_site_db as add_monthly_summary_site,
+    sync_sites_to_monthly_summary_db as sync_sites_to_monthly_summary,
     delete_monthly_summary_site_db as delete_monthly_summary_site,
     update_monthly_summary_budget_db as update_monthly_summary_budget,
     delete_application_db as delete_application,
@@ -1571,6 +1572,20 @@ elif menu == "월별 집계":
     
     with summary_tabs[1]:
         st.markdown("### 현장 추가/삭제/예산 수정")
+        
+        col_sync, col_sync_info = st.columns([1, 3])
+        with col_sync:
+            if st.button("🔄 미등록 현장 자동 동기화", use_container_width=True):
+                sync_ok, sync_msg = sync_sites_to_monthly_summary()
+                if sync_ok:
+                    st.success(sync_msg)
+                    st.rerun()
+                else:
+                    st.error(sync_msg)
+        with col_sync_info:
+            st.info("관리자 모드에 등록된 현장 중 월별 집계에 없는 현장을 자동으로 추가합니다. (예산은 0으로 설정되며, 이후 직접 수정 가능)")
+        
+        st.divider()
         
         st.markdown("#### 새 현장 추가")
         with st.form("add_summary_site_form", clear_on_submit=True):
