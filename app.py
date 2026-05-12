@@ -1189,10 +1189,26 @@ elif menu == "신청내역조회":
             
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
+            # 선택 키 목록 (종합용)
+            all_sel_keys = [f"sel_app_{idx}" for idx in grouped.index]
+            
+            sel_col1, sel_col2, sel_col3 = st.columns([1, 1, 4])
+            with sel_col1:
+                if st.button("☑️ 전체 선택", use_container_width=True):
+                    for k in all_sel_keys:
+                        st.session_state[k] = True
+                    st.rerun()
+            with sel_col2:
+                if st.button("⬜ 전체 해제", use_container_width=True):
+                    for k in all_sel_keys:
+                        st.session_state[k] = False
+                    st.rerun()
+            
             for idx, row in grouped.iterrows():
                 pdf_key = f"pdf_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 del_key = f"del_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
+                sel_key = f"sel_app_{idx}"
                 
                 company = row['법인명']
                 date_str = row['날짜_str'].replace('-', '')
@@ -1210,8 +1226,11 @@ elif menu == "신청내역조회":
                 else:
                     pdf_data = get_pdf_from_db(pdf_filename)
                 
-                expander_label = f"**{row['날짜_str']}** | {row['구분']} | {row['현장명']} | {row['신청자']} | {row['품목수']}개"
+                is_selected = st.session_state.get(sel_key, False)
+                chk_icon = "✅" if is_selected else "⬜"
+                expander_label = f"{chk_icon} **{row['날짜_str']}** | {row['구분']} | {row['현장명']} | {row['신청자']} | {row['품목수']}개"
                 with st.expander(expander_label):
+                    st.checkbox("📌 종합에 포함", key=sel_key, value=is_selected)
                     detail_df_temp = filtered_df.copy()
                     detail_df_temp['날짜_str'] = detail_df_temp['날짜'].dt.strftime('%Y-%m-%d')
                     detail_items = detail_df_temp[
@@ -1380,58 +1399,80 @@ elif menu == "신청내역조회":
             
             st.divider()
             
-            csv = filtered_df.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 엑셀 다운로드 (CSV)",
-                data=csv,
-                file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv"
-            )
+            # 선택된 건 종합
+            selected_rows = grouped[grouped.index.map(lambda i: st.session_state.get(f"sel_app_{i}", False))]
             
-            st.divider()
-            st.markdown("### 품목별 신청 현황")
-            
-            if '품목명' in filtered_df.columns and '수량' in filtered_df.columns:
-                item_df = filtered_df[filtered_df['품목명'].notna() & (filtered_df['품목명'] != '')].copy()
-                if not item_df.empty:
-                    supply_items = item_df[item_df['구분'] == '경비물품']
-                    uniform_items = item_df[item_df['구분'] == '피복']
+            st.markdown("### 선택 항목 종합")
+            if selected_rows.empty:
+                st.info("위 목록에서 신청 건을 선택하면 품목별 수량 종합이 표시됩니다. (각 항목을 클릭해서 열고 '📌 종합에 포함' 체크, 또는 상단 '☑️ 전체 선택' 버튼 사용)")
+            else:
+                st.success(f"선택된 신청 건: **{len(selected_rows)}건**")
+                
+                # 선택된 행에 해당하는 품목 데이터 추출
+                filtered_df_temp = filtered_df.copy()
+                filtered_df_temp['날짜_str'] = filtered_df_temp['날짜'].dt.strftime('%Y-%m-%d')
+                
+                sel_masks = []
+                for _, srow in selected_rows.iterrows():
+                    mask = (
+                        (filtered_df_temp['날짜_str'] == srow['날짜_str']) &
+                        (filtered_df_temp['현장명'] == srow['현장명']) &
+                        (filtered_df_temp['신청자'] == srow['신청자']) &
+                        (filtered_df_temp['구분'] == srow['구분'])
+                    )
+                    sel_masks.append(mask)
+                
+                combined_mask = sel_masks[0]
+                for m in sel_masks[1:]:
+                    combined_mask = combined_mask | m
+                
+                sel_items_df = filtered_df_temp[combined_mask & filtered_df_temp['품목명'].notna() & (filtered_df_temp['품목명'] != '')].copy()
+                
+                if not sel_items_df.empty:
+                    supply_sel = sel_items_df[sel_items_df['구분'] == '경비물품']
+                    uniform_sel = sel_items_df[sel_items_df['구분'] == '피복']
                     
-                    col_supply, col_uniform = st.columns(2)
+                    col_sup, col_uni = st.columns(2)
                     
-                    with col_supply:
+                    with col_sup:
                         st.markdown("#### 경비물품")
-                        if not supply_items.empty:
-                            supply_summary = (
-                                supply_items.groupby('품목명')['수량']
-                                .sum()
+                        if not supply_sel.empty:
+                            sup_summary = (
+                                supply_sel.groupby('품목명')
+                                .agg(총수량=('수량', 'sum'), 총금액=('합계금액', 'sum'))
                                 .reset_index()
-                                .rename(columns={'품목명': '품목', '수량': '총수량'})
+                                .rename(columns={'품목명': '품목'})
                                 .sort_values('총수량', ascending=False)
                             )
-                            supply_summary['총수량'] = supply_summary['총수량'].astype(int)
-                            st.dataframe(supply_summary, use_container_width=True, hide_index=True)
-                            st.caption(f"총 {supply_summary['총수량'].sum():,}개")
+                            sup_summary['총수량'] = sup_summary['총수량'].astype(int)
+                            sup_summary['총금액'] = sup_summary['총금액'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "-")
+                            st.dataframe(sup_summary, use_container_width=True, hide_index=True)
+                            total_qty = supply_sel['수량'].sum()
+                            total_amt = supply_sel['합계금액'].sum()
+                            st.caption(f"총 {int(total_qty):,}개 | 합계 {int(total_amt):,}원")
                         else:
-                            st.info("해당 기간 경비물품 신청 내역이 없습니다.")
+                            st.info("선택 건 중 경비물품 없음")
                     
-                    with col_uniform:
+                    with col_uni:
                         st.markdown("#### 피복")
-                        if not uniform_items.empty:
-                            uniform_summary = (
-                                uniform_items.groupby('품목명')['수량']
-                                .sum()
+                        if not uniform_sel.empty:
+                            uni_summary = (
+                                uniform_sel.groupby('품목명')
+                                .agg(총수량=('수량', 'sum'), 총금액=('합계금액', 'sum'))
                                 .reset_index()
-                                .rename(columns={'품목명': '품목', '수량': '총수량'})
+                                .rename(columns={'품목명': '품목'})
                                 .sort_values('총수량', ascending=False)
                             )
-                            uniform_summary['총수량'] = uniform_summary['총수량'].astype(int)
-                            st.dataframe(uniform_summary, use_container_width=True, hide_index=True)
-                            st.caption(f"총 {uniform_summary['총수량'].sum():,}개")
+                            uni_summary['총수량'] = uni_summary['총수량'].astype(int)
+                            uni_summary['총금액'] = uni_summary['총금액'].apply(lambda x: f"{int(x):,}" if pd.notna(x) else "-")
+                            st.dataframe(uni_summary, use_container_width=True, hide_index=True)
+                            total_qty = uniform_sel['수량'].sum()
+                            total_amt = uniform_sel['합계금액'].sum()
+                            st.caption(f"총 {int(total_qty):,}개 | 합계 {int(total_amt):,}원")
                         else:
-                            st.info("해당 기간 피복 신청 내역이 없습니다.")
+                            st.info("선택 건 중 피복 없음")
                 else:
-                    st.info("품목 데이터가 없습니다.")
+                    st.info("선택된 건의 품목 데이터가 없습니다.")
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
