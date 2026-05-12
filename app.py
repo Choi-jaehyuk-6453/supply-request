@@ -1387,6 +1387,51 @@ elif menu == "신청내역조회":
                 file_name=f"신청내역_{datetime.now().strftime('%Y%m%d')}.csv",
                 mime="text/csv"
             )
+            
+            st.divider()
+            st.markdown("### 품목별 신청 현황")
+            
+            if '품목명' in filtered_df.columns and '수량' in filtered_df.columns:
+                item_df = filtered_df[filtered_df['품목명'].notna() & (filtered_df['품목명'] != '')].copy()
+                if not item_df.empty:
+                    supply_items = item_df[item_df['구분'] == '경비물품']
+                    uniform_items = item_df[item_df['구분'] == '피복']
+                    
+                    col_supply, col_uniform = st.columns(2)
+                    
+                    with col_supply:
+                        st.markdown("#### 경비물품")
+                        if not supply_items.empty:
+                            supply_summary = (
+                                supply_items.groupby('품목명')['수량']
+                                .sum()
+                                .reset_index()
+                                .rename(columns={'품목명': '품목', '수량': '총수량'})
+                                .sort_values('총수량', ascending=False)
+                            )
+                            supply_summary['총수량'] = supply_summary['총수량'].astype(int)
+                            st.dataframe(supply_summary, use_container_width=True, hide_index=True)
+                            st.caption(f"총 {supply_summary['총수량'].sum():,}개")
+                        else:
+                            st.info("해당 기간 경비물품 신청 내역이 없습니다.")
+                    
+                    with col_uniform:
+                        st.markdown("#### 피복")
+                        if not uniform_items.empty:
+                            uniform_summary = (
+                                uniform_items.groupby('품목명')['수량']
+                                .sum()
+                                .reset_index()
+                                .rename(columns={'품목명': '품목', '수량': '총수량'})
+                                .sort_values('총수량', ascending=False)
+                            )
+                            uniform_summary['총수량'] = uniform_summary['총수량'].astype(int)
+                            st.dataframe(uniform_summary, use_container_width=True, hide_index=True)
+                            st.caption(f"총 {uniform_summary['총수량'].sum():,}개")
+                        else:
+                            st.info("해당 기간 피복 신청 내역이 없습니다.")
+                else:
+                    st.info("품목 데이터가 없습니다.")
         else:
             st.info("검색 조건에 맞는 데이터가 없습니다.")
     else:
@@ -1433,6 +1478,12 @@ elif menu == "월별 집계":
             for col in df_display.columns:
                 if col not in ['구분', '현장명']:
                     df_display[col] = pd.to_numeric(df_display[col], errors='coerce').fillna(0).astype(int)
+            
+            if '합계' in df_display.columns and '예산' in df_display.columns:
+                df_display['사용률'] = df_display.apply(
+                    lambda r: f"{r['합계'] / r['예산'] * 100:.1f}%" if r['예산'] > 0 else "-",
+                    axis=1
+                )
             
             total_budget = df_display['예산'].sum() if '예산' in df_display.columns else 0
             total_used = df_display['합계'].sum() if '합계' in df_display.columns else 0
@@ -1625,7 +1676,8 @@ elif menu == "관리자 모드":
             if st.form_submit_button("현장 등록", type="primary"):
                 if new_site_name:
                     add_site(new_site_name, new_site_company, new_site_address, new_site_contact)
-                    st.success(f"'{new_site_name}' 현장이 등록되었습니다.")
+                    add_monthly_summary_site(new_site_name, new_site_company, 0, 0)
+                    st.success(f"'{new_site_name}' 현장이 등록되었습니다. (월별 집계에도 자동 추가됨)")
                     st.rerun()
                 else:
                     st.error("현장명을 입력해주세요.")
