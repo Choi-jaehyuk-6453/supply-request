@@ -611,12 +611,6 @@ if menu == "신청서 작성":
             if '_id' not in item:
                 item['_id'] = _new_item_id()
         
-        col_add_sup, col_del_sup = st.columns([1, 5])
-        with col_add_sup:
-            if st.button("➕ 행 추가", use_container_width=True, key="add_supply"):
-                st.session_state.supplies_items.append({'_id': _new_item_id(), '품목명': '', '규격': '', '수량': 1})
-                st.rerun()
-        
         st.markdown("**No | 품목 선택 | 규격 | 수량 | 삭제**")
         
         supplies_to_delete = []
@@ -659,6 +653,12 @@ if menu == "신청서 작성":
                         del st.session_state[wkey]
             st.rerun()
         
+        col_add_sup_bot, col_space_sup = st.columns([1, 5])
+        with col_add_sup_bot:
+            if st.button("➕ 행 추가", use_container_width=True, key="add_supply"):
+                st.session_state.supplies_items.append({'_id': _new_item_id(), '품목명': '', '규격': '', '수량': 1})
+                st.rerun()
+        
         edited_supplies = pd.DataFrame(st.session_state.supplies_items)
     
     else:
@@ -683,52 +683,6 @@ if menu == "신청서 작성":
                 item['product_count'] = 3
             if '_id' not in item:
                 item['_id'] = _new_item_id()
-        
-        col_add, col_copy, col_space = st.columns([1, 1, 4])
-        with col_add:
-            if st.button("➕ 행 추가", use_container_width=True):
-                st.session_state.uniform_items.append(
-                    {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
-                     '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
-                )
-                st.rerun()
-        with col_copy:
-            if st.button("📋 복사 행추가", use_container_width=True, help="마지막 신청자 품목 복사"):
-                if st.session_state.uniform_items:
-                    last_item = st.session_state.uniform_items[-1]
-                    last_iid = last_item['_id']
-                    product_count = last_item.get('product_count', 3)
-                    
-                    new_item = {
-                        '_id': _new_item_id(),
-                        '업종': st.session_state.get(f'job_{last_iid}', last_item.get('업종', '경비직')),
-                        '직책': st.session_state.get(f'pos_{last_iid}', last_item.get('직책', '경비원')),
-                        '근무자': '',
-                        '상의': st.session_state.get(f'top_{last_iid}', last_item.get('상의', '100')),
-                        '하의': st.session_state.get(f'bot_{last_iid}', last_item.get('하의', '32')),
-                        '모자': st.session_state.get(f'hat_{last_iid}', last_item.get('모자', '중')),
-                        '신발': st.session_state.get(f'shoe_{last_iid}', last_item.get('신발', '선택없음')),
-                        'product_count': product_count
-                    }
-                    for i in range(1, product_count + 1):
-                        widget_prod_key = f'unif_select_{last_iid}_{i}'
-                        widget_qty_key = f'unif_qty_{last_iid}_{i}'
-                        prod_value = st.session_state.get(widget_prod_key, last_item.get(f'품목{i}', ''))
-                        qty_value = st.session_state.get(widget_qty_key, last_item.get(f'수량{i}', 0))
-                        if prod_value == '선택 안함':
-                            prod_value = ''
-                        elif prod_value == '직접 입력':
-                            prod_value = st.session_state.get(f'prod_{last_iid}_{i}', last_item.get(f'품목{i}', ''))
-                        new_item[f'품목{i}'] = prod_value
-                        new_item[f'수량{i}'] = qty_value
-                    st.session_state.uniform_items.append(new_item)
-                    st.rerun()
-                else:
-                    st.session_state.uniform_items.append(
-                        {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
-                         '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
-                    )
-                    st.rerun()
         
         items_to_delete = []
         for idx, item in enumerate(st.session_state.uniform_items):
@@ -832,6 +786,49 @@ if menu == "신청서 작성":
                             if wkey in st.session_state:
                                 del st.session_state[wkey]
             st.rerun()
+        
+        col_add_bot, col_copy_bot, col_space_bot = st.columns([1, 1, 4])
+        with col_add_bot:
+            if st.button("➕ 행 추가", use_container_width=True):
+                st.session_state.uniform_items.append(
+                    {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
+                     '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
+                )
+                st.rerun()
+        with col_copy_bot:
+            if st.button("📋 복사 행추가", use_container_width=True, help="마지막 신청자 품목 복사"):
+                if st.session_state.uniform_items:
+                    last_item = st.session_state.uniform_items[-1]
+                    last_iid = last_item['_id']
+                    product_count = last_item.get('product_count', 3)
+                    new_item = {
+                        '_id': _new_item_id(),
+                        '업종': st.session_state.get(f'job_{last_iid}', last_item.get('업종', '경비직')),
+                        '직책': st.session_state.get(f'pos_{last_iid}', last_item.get('직책', '경비원')),
+                        '근무자': '',
+                        '상의': st.session_state.get(f'top_{last_iid}', last_item.get('상의', '100')),
+                        '하의': st.session_state.get(f'bot_{last_iid}', last_item.get('하의', '32')),
+                        '모자': st.session_state.get(f'hat_{last_iid}', last_item.get('모자', '중')),
+                        '신발': st.session_state.get(f'shoe_{last_iid}', last_item.get('신발', '선택없음')),
+                        'product_count': product_count
+                    }
+                    for i in range(1, product_count + 1):
+                        prod_value = st.session_state.get(f'unif_select_{last_iid}_{i}', last_item.get(f'품목{i}', ''))
+                        qty_value = st.session_state.get(f'unif_qty_{last_iid}_{i}', last_item.get(f'수량{i}', 0))
+                        if prod_value == '선택 안함':
+                            prod_value = ''
+                        elif prod_value == '직접 입력':
+                            prod_value = st.session_state.get(f'prod_{last_iid}_{i}', last_item.get(f'품목{i}', ''))
+                        new_item[f'품목{i}'] = prod_value
+                        new_item[f'수량{i}'] = qty_value
+                    st.session_state.uniform_items.append(new_item)
+                    st.rerun()
+                else:
+                    st.session_state.uniform_items.append(
+                        {'_id': _new_item_id(), '업종': '경비직', '직책': '경비원', '근무자': '', '상의': '100', '하의': '32', '모자': '중', '신발': '선택없음',
+                         '품목1': '', '수량1': 0, '품목2': '', '수량2': 0, '품목3': '', '수량3': 0, 'product_count': 3}
+                    )
+                    st.rerun()
         
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
@@ -1191,28 +1188,7 @@ elif menu == "신청내역조회":
             
             grouped['날짜_str'] = pd.to_datetime(grouped['날짜']).dt.strftime('%Y-%m-%d')
             
-            header_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4, 0.4])
-            header_cols[0].markdown("**날짜**")
-            header_cols[1].markdown("**구분**")
-            header_cols[2].markdown("**현장명**")
-            header_cols[3].markdown("**신청자**")
-            header_cols[4].markdown("**품목**")
-            header_cols[5].markdown("**품목수**")
-            header_cols[6].markdown("**PDF**")
-            header_cols[7].markdown("**재신청**")
-            header_cols[8].markdown("**삭제**")
-            
-            st.divider()
-            
             for idx, row in grouped.iterrows():
-                row_cols = st.columns([1.2, 0.8, 1.2, 1, 2, 0.6, 0.4, 0.4, 0.4])
-                row_cols[0].write(row['날짜_str'])
-                row_cols[1].write(row['구분'])
-                row_cols[2].write(row['현장명'])
-                row_cols[3].write(row['신청자'])
-                row_cols[4].write(row['품목'])
-                row_cols[5].write(f"{row['품목수']}개")
-                
                 pdf_key = f"pdf_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 btn_key = f"edit_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
                 del_key = f"del_{row['날짜_str']}_{row['현장명']}_{row['신청자']}_{row['구분']}_{idx}"
@@ -1233,32 +1209,55 @@ elif menu == "신청내역조회":
                 else:
                     pdf_data = get_pdf_from_db(pdf_filename)
                 
-                if pdf_data:
-                    row_cols[6].download_button(
-                        label="📄",
-                        data=pdf_data,
-                        file_name=pdf_filename,
-                        mime="application/pdf",
-                        key=pdf_key
-                    )
-                else:
-                    row_cols[6].write("-")
+                expander_label = f"**{row['날짜_str']}** | {row['구분']} | {row['현장명']} | {row['신청자']} | {row['품목수']}개"
+                with st.expander(expander_label):
+                    detail_df_temp = filtered_df.copy()
+                    detail_df_temp['날짜_str'] = detail_df_temp['날짜'].dt.strftime('%Y-%m-%d')
+                    detail_items = detail_df_temp[
+                        (detail_df_temp['날짜_str'] == row['날짜_str']) &
+                        (detail_df_temp['현장명'] == row['현장명']) &
+                        (detail_df_temp['신청자'] == row['신청자']) &
+                        (detail_df_temp['구분'] == row['구분'])
+                    ][['품목명', '규격', '수량', '단가', '합계금액']].copy()
+                    detail_items['수량'] = detail_items['수량'].apply(lambda x: int(x) if pd.notna(x) else 0)
+                    detail_items['단가'] = detail_items['단가'].apply(lambda x: f"{int(x):,}" if pd.notna(x) and x else "-")
+                    detail_items['합계금액'] = detail_items['합계금액'].apply(lambda x: f"{int(x):,}" if pd.notna(x) and x else "-")
+                    detail_items.columns = ['품목명', '규격', '수량', '단가(원)', '합계(원)']
+                    st.dataframe(detail_items, use_container_width=True, hide_index=True)
+                    
+                    act_cols = st.columns([1, 1, 1, 4])
+                    with act_cols[0]:
+                        if pdf_data:
+                            st.download_button(
+                                label="📄 PDF",
+                                data=pdf_data,
+                                file_name=pdf_filename,
+                                mime="application/pdf",
+                                key=pdf_key,
+                                use_container_width=True
+                            )
+                        else:
+                            st.button("📄 PDF 없음", disabled=True, key=pdf_key, use_container_width=True)
+                    with act_cols[1]:
+                        reapply_clicked = st.button("✏️ 재신청", key=btn_key, use_container_width=True)
+                    with act_cols[2]:
+                        delete_clicked = st.button("🗑️ 삭제", key=del_key, use_container_width=True)
+                    
+                    if delete_clicked:
+                        confirm_delete_dialog(
+                            'application',
+                            None,
+                            f"{row['날짜_str']} - {row['현장명']} ({row['신청자']})",
+                            extra_info={
+                                'date': row['날짜_str'],
+                                'site': row['현장명'],
+                                'applicant': row['신청자'],
+                                'app_type': row['구분'],
+                                'company': row['법인명']
+                            }
+                        )
                 
-                if row_cols[8].button("🗑️", key=del_key):
-                    confirm_delete_dialog(
-                        'application', 
-                        None,
-                        f"{row['날짜_str']} - {row['현장명']} ({row['신청자']})",
-                        extra_info={
-                            'date': row['날짜_str'],
-                            'site': row['현장명'],
-                            'applicant': row['신청자'],
-                            'app_type': row['구분'],
-                            'company': row['법인명']
-                        }
-                    )
-                
-                if row_cols[7].button("✏️", key=btn_key):
+                if reapply_clicked:
                     display_df_temp = filtered_df.copy()
                     display_df_temp['날짜_str'] = display_df_temp['날짜'].dt.strftime('%Y-%m-%d')
                     
