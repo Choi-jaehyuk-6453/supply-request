@@ -8,17 +8,22 @@ from sqlalchemy import create_engine, Column, Integer, String, Float, Date, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
+try:
+    import streamlit as st
+    _secret_url = st.secrets.get("DATABASE_URL")
+except Exception:
+    _secret_url = None
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
+DATABASE_URL = _secret_url or os.environ.get('DATABASE_URL', 'sqlite:///supply_request.db')
 
-engine = create_engine(DATABASE_URL) if DATABASE_URL else None
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) if engine else None
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
 class Application(Base):
     """신청 내역 테이블"""
-    __tablename__ = 'applications'
+    __tablename__ = 'sr_applications'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     date = Column(Date, nullable=False)
@@ -36,7 +41,7 @@ class Application(Base):
 
 class MonthlySummary(Base):
     """월별 집계 테이블"""
-    __tablename__ = 'monthly_summary'
+    __tablename__ = 'sr_monthly_summary'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     company = Column(String(50), nullable=False)
@@ -59,7 +64,7 @@ class MonthlySummary(Base):
 
 class Site(Base):
     """현장 정보 테이블"""
-    __tablename__ = 'sites'
+    __tablename__ = 'sr_sites'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
@@ -72,7 +77,7 @@ class Site(Base):
 
 class Applicant(Base):
     """신청자 정보 테이블"""
-    __tablename__ = 'applicants'
+    __tablename__ = 'sr_applicants'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(100), nullable=False)
@@ -83,7 +88,7 @@ class Applicant(Base):
 
 class SupplyProduct(Base):
     """경비용품 품목 테이블"""
-    __tablename__ = 'supply_products'
+    __tablename__ = 'sr_supply_products'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
@@ -95,7 +100,7 @@ class SupplyProduct(Base):
 
 class UniformProduct(Base):
     """피복 품목 테이블"""
-    __tablename__ = 'uniform_products'
+    __tablename__ = 'sr_uniform_products'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(200), nullable=False)
@@ -106,7 +111,7 @@ class UniformProduct(Base):
 
 class EmailRecipient(Base):
     """이메일 수신자 테이블"""
-    __tablename__ = 'email_recipients'
+    __tablename__ = 'sr_email_recipients'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     company_name = Column(String(200), nullable=False)
@@ -117,7 +122,7 @@ class EmailRecipient(Base):
 
 class PdfFile(Base):
     """PDF 파일 저장 테이블"""
-    __tablename__ = 'pdf_files'
+    __tablename__ = 'sr_pdf_files'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     filename = Column(String(500), nullable=False, unique=True)
@@ -125,6 +130,26 @@ class PdfFile(Base):
     app_type = Column(String(50))
     company = Column(String(50))
     site_name = Column(String(200))
+    created_at = Column(DateTime, default=datetime.now)
+
+
+class Draft(Base):
+    """임시저장 테이블"""
+    __tablename__ = 'sr_drafts'
+    
+    id = Column(String(50), primary_key=True)
+    site_name = Column(String(200))
+    app_type = Column(String(50))
+    company = Column(String(50))
+    applicant = Column(String(100))
+    applicant_contact = Column(String(100))
+    address = Column(String(500))
+    contact = Column(String(100))
+    remarks = Column(Text)
+    application_date = Column(String(50))
+    items_json = Column(Text)
+    item_count = Column(Integer, default=0)
+    saved_at = Column(String(50))
     created_at = Column(DateTime, default=datetime.now)
 
 

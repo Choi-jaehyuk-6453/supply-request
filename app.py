@@ -26,7 +26,7 @@ from reference_data import (
     get_supply_products, add_supply_product, update_supply_product, delete_supply_product, get_supply_product_by_name,
     get_uniform_products, add_uniform_product, update_uniform_product, delete_uniform_product, get_uniform_product_by_name
 )
-from draft_manager import save_draft, get_draft, delete_draft, get_draft_list, update_draft
+from draft_manager import save_draft, get_draft, delete_draft, get_draft_list, update_draft, migrate_json_drafts_to_db
 
 @st.dialog("삭제 확인")
 def confirm_delete_dialog(delete_type, item_id, item_name, extra_info=None):
@@ -57,179 +57,290 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 메인 색상 변수 - 로고 기반 */
+    /* 메인 색상 및 폰트 변수 설정 */
     :root {
-        --primary-blue: #1a3a6e;
-        --primary-orange: #f5a623;
-        --light-blue: #e8f0f8;
-        --dark-text: #2c3e50;
-        --light-gray: #f8f9fa;
+        --primary: #0F172A;      /* Slate 900 (Navy) */
+        --primary-light: #1E293B; /* Slate 800 */
+        --accent: #F59E0B;       /* Amber 500 (Orange point) */
+        --accent-hover: #D97706; /* Amber 600 */
+        --bg-color: #F8FAFC;     /* Slate 50 (Very light gray) */
+        --surface: #FFFFFF;
+        --border: #E2E8F0;       /* Slate 200 */
+        --text-main: #334155;    /* Slate 700 */
+        --text-light: #64748B;   /* Slate 500 */
+        --radius: 6px;           /* 약간 각진 모던한 느낌 */
+        --font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
+    }
+
+    /* 전체 폰트 및 텍스트 색상 */
+    html, body, [class*="css"] {
+        font-family: var(--font-family) !important;
+        color: var(--text-main);
+    }
+
+    /* 앱 전체 배경색 */
+    .stApp {
+        background-color: var(--bg-color);
+    }
+
+    /* 메인 컨텐츠 패딩 조절 (밀도 높이기) */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 3rem !important;
+        max-width: 1200px !important;
+    }
+
+    /* 헤더 스타일링 */
+    .main-header {
+        font-size: 1.75rem !important;
+        font-weight: 700 !important;
+        color: var(--primary) !important;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.25rem !important;
+        padding-bottom: 0.75rem !important;
+        border-bottom: 3px solid var(--primary);
     }
     
-    /* 메인 헤더 스타일 */
-    .main-header {
-        font-size: 1.5rem !important;
-        font-weight: 600 !important;
-        color: #1a3a6e !important;
-        margin-bottom: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
-        border-bottom: 3px solid #f5a623 !important;
-    }
     .sub-header {
         font-size: 1rem;
-        color: #5a6a7a;
+        color: var(--text-light);
         margin-bottom: 1.5rem;
         font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .sub-header::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background-color: var(--accent);
+        border-radius: 50%;
+    }
+
+    /* 서브헤더 (st.subheader) */
+    h3 {
+        font-size: 1.25rem !important;
+        font-weight: 600 !important;
+        color: var(--primary) !important;
+        margin-top: 1.5rem !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* 사이드바 스타일링 */
+    [data-testid="stSidebar"] {
+        background-color: var(--surface);
+        border-right: 1px solid var(--border);
+    }
+    [data-testid="stSidebar"] [data-testid="stImage"] {
+        padding: 1rem 0;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
     }
     
-    /* 사이드바 스타일 */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #ffffff 0%, #f0f4f8 100%);
-        border-right: 1px solid #e0e6ed;
-    }
-    [data-testid="stSidebar"] > div:first-child {
-        padding-top: 1rem;
-    }
-    /* 로고 이미지 영역 */
-    [data-testid="stSidebar"] [data-testid="stImage"] {
-        padding: 0 10px;
-    }
-    [data-testid="stSidebar"] .stSelectbox > div > div {
-        background-color: white;
-        border: 1px solid #d0d9e3;
-        border-radius: 8px;
-    }
-    [data-testid="stSidebar"] .stRadio > div {
-        background-color: white;
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid #e0e6ed;
+    /* 사이드바 라디오 버튼 (메뉴) 스타일링 */
+    [data-testid="stSidebar"] .stRadio > div[role="radiogroup"] {
+        gap: 4px;
     }
     [data-testid="stSidebar"] .stRadio label {
-        color: #2c3e50;
+        padding: 10px 12px;
+        border-radius: var(--radius);
+        transition: all 0.2s ease;
+        cursor: pointer;
+        background-color: transparent;
+        border: 1px solid transparent;
+        color: var(--text-main) !important;
         font-weight: 500;
     }
-    
-    /* 버튼 스타일 */
-    .stButton > button {
-        border-radius: 8px;
-        font-weight: 600;
-        transition: all 0.2s ease;
+    [data-testid="stSidebar"] .stRadio label:hover {
+        background-color: var(--bg-color);
     }
+    [data-testid="stSidebar"] .stRadio label[data-checked="true"] {
+        background-color: var(--primary);
+        color: white !important;
+    }
+    [data-testid="stSidebar"] .stRadio label[data-checked="true"] p {
+        color: white !important;
+        font-weight: 600;
+    }
+
+    /* 버튼 기본 스타일 */
+    .stButton > button {
+        border-radius: var(--radius) !important;
+        font-weight: 600 !important;
+        border: 1px solid var(--border) !important;
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important;
+        transition: all 0.2s ease-in-out !important;
+        padding: 0.5rem 1rem !important;
+    }
+    .stButton > button:hover {
+        border-color: var(--text-light) !important;
+        color: var(--primary) !important;
+        background-color: var(--bg-color) !important;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Primary 버튼 (강조) */
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #1a3a6e 0%, #2a5298 100%);
-        border: none;
-        box-shadow: 0 2px 8px rgba(26, 58, 110, 0.3);
+        background-color: var(--primary) !important;
+        border-color: var(--primary) !important;
+        color: white !important;
     }
     .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #2a5298 0%, #1a3a6e 100%);
-        box-shadow: 0 4px 12px rgba(26, 58, 110, 0.4);
+        background-color: var(--primary-light) !important;
+        border-color: var(--primary-light) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
-    .stButton > button:not([kind="primary"]) {
-        border: 1px solid #d0d9e3;
-        background-color: white;
-    }
-    .stButton > button:not([kind="primary"]):hover {
-        background-color: #f0f4f8;
-        border-color: #1a3a6e;
-    }
-    
-    /* 입력 필드 스타일 */
+
+    /* 입력 폼 (Input) 스타일 */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input,
-    .stTextArea > div > div > textarea {
-        border: 1px solid #d0d9e3;
-        border-radius: 8px;
-        padding: 10px 12px;
+    .stTextArea > div > div > textarea,
+    .stDateInput > div > div > input {
+        border-radius: var(--radius) !important;
+        border: 1px solid var(--border) !important;
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.95rem !important;
+        background-color: var(--surface);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
+    
+    /* 선택박스(Select) 래퍼 스타일 (padding 제거하여 잘림 방지) */
+    .stSelectbox > div > div {
+        border-radius: var(--radius) !important;
+        border: 1px solid var(--border) !important;
+        background-color: var(--surface);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    
+    /* 포커스 효과 */
     .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #1a3a6e;
-        box-shadow: 0 0 0 2px rgba(26, 58, 110, 0.1);
+    .stSelectbox > div > div:focus-within,
+    .stTextArea > div > div > textarea:focus,
+    .stDateInput > div > div > input:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 1px var(--accent) !important;
+        outline: none !important;
     }
     
-    /* 선택박스 스타일 */
-    .stSelectbox > div > div {
-        border-radius: 8px;
+    /* 레이블 스타일 */
+    .stTextInput label, .stSelectbox label, .stNumberInput label, .stDateInput label {
+        font-size: 0.875rem !important;
+        font-weight: 600 !important;
+        color: var(--text-main) !important;
+        margin-bottom: 0.25rem !important;
     }
-    
-    /* 정보 박스 스타일 */
-    .stAlert {
-        border-radius: 10px;
-        border: none;
-    }
-    [data-testid="stAlert"][data-baseweb="notification"] {
-        background-color: #e8f0f8;
-        border-left: 4px solid #1a3a6e;
-    }
-    
-    /* 카드 스타일 */
+
+    /* Expander (카드 형태) 스타일 */
     .stExpander {
-        border: 1px solid #e0e6ed;
-        border-radius: 10px;
-        background-color: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
+        background-color: var(--surface) !important;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        margin-bottom: 1rem !important;
     }
-    
-    /* 데이터프레임 스타일 */
+    .stExpander summary {
+        padding: 1rem !important;
+        font-weight: 600 !important;
+        color: var(--primary) !important;
+    }
+    .stExpander summary:hover {
+        background-color: var(--bg-color) !important;
+    }
+
+    /* 알림창 (Info, Warning, Error) */
+    .stAlert {
+        border-radius: var(--radius) !important;
+        padding: 1rem !important;
+        border-left-width: 4px !important;
+        border-left-style: solid !important;
+    }
+    [data-testid="stAlert"][data-baseweb="notification"]:has(div:contains("ℹ️")) {
+        background-color: #EFF6FF !important; /* Blue 50 */
+        border-left-color: #3B82F6 !important; /* Blue 500 */
+        color: #1E3A8A !important; /* Blue 900 */
+    }
+
+    /* 데이터프레임 */
     .stDataFrame {
-        border-radius: 10px;
+        border: 1px solid var(--border) !important;
+        border-radius: var(--radius) !important;
         overflow: hidden;
-        border: 1px solid #e0e6ed;
     }
     
-    /* 탭 스타일 */
+    /* 탭(Tabs) 스타일 개선 */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: transparent;
+        gap: 0;
+        border-bottom: 1px solid var(--border);
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 8px 8px 0 0;
-        padding: 10px 20px;
-        background-color: #f0f4f8;
-        border: 1px solid #e0e6ed;
-        border-bottom: none;
+        padding: 12px 24px;
+        font-weight: 600;
+        color: var(--text-light);
+        border: none;
+        border-bottom: 2px solid transparent;
+        background-color: transparent;
+        border-radius: 0;
+    }
+    .stTabs [data-baseweb="tab"]:hover {
+        color: var(--primary);
     }
     .stTabs [aria-selected="true"] {
-        background-color: white;
-        border-color: #1a3a6e;
-        border-bottom: 2px solid white;
-        color: #1a3a6e;
-        font-weight: 600;
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
     }
-    
-    /* 메트릭 스타일 */
+
+    /* 메트릭(Metric) 스타일 - 조회 화면용 */
     [data-testid="stMetric"] {
-        background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        border: 1px solid #e0e6ed;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        background-color: var(--surface);
+        padding: 1.25rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
     }
     [data-testid="stMetricLabel"] {
-        color: #5a6a7a;
-        font-weight: 500;
+        color: var(--text-light);
+        font-weight: 600;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
     }
     [data-testid="stMetricValue"] {
-        color: #1a3a6e;
+        color: var(--primary);
         font-weight: 700;
+        font-size: 1.875rem;
     }
     
-    /* 구분선 스타일 */
+    /* 구분선 */
     hr {
-        border-color: #e0e6ed;
-        margin: 1.5rem 0;
+        margin: 2rem 0;
+        border-color: var(--border);
     }
     
-    /* 서브헤더 스타일 */
-    .stSubheader {
-        color: #1a3a6e;
-        font-weight: 600;
-        border-left: 4px solid #f5a623;
-        padding-left: 12px;
+    /* 커스텀 유틸리티 클래스 */
+    .card-container {
+        background-color: var(--surface);
+        padding: 1.5rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 3px 0 rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
     }
     
+    /* 품목 리스트 아이템 컴팩트화 */
+    .item-row {
+        background-color: var(--surface);
+        padding: 1rem;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        margin-bottom: 0.5rem;
+    }
+
     /* 성공/경고/에러 메시지 */
     .stSuccess {
         background-color: #d4edda;
@@ -273,6 +384,7 @@ if 'db_initialized' not in st.session_state:
     migrated_count = migrate_existing_pdfs_to_db()
     if migrated_count > 0:
         print(f"기존 PDF {migrated_count}개 DB로 마이그레이션 완료")
+    migrate_json_drafts_to_db()
     st.session_state.db_initialized = True
 
 menu_options = ["신청서 작성", "신청내역조회", "월별 집계", "관리자 모드"]
@@ -469,6 +581,7 @@ if menu == "신청서 작성":
     if draft_meta:
         st.info(f"📂 임시저장 데이터를 불러왔습니다: {draft_meta.get('site_name', '')}")
     
+    st.markdown('<div class="card-container">', unsafe_allow_html=True)
     st.subheader("기본 정보 입력")
     
     sites = get_sites()
@@ -593,9 +706,9 @@ if menu == "신청서 작성":
             value=default_contact,
             placeholder="예: 010-2211-9352 정봉환 경비팀장"
         )
+    st.markdown('</div>', unsafe_allow_html=True)
     
-    st.divider()
-    
+    st.markdown('<div class="card-container">', unsafe_allow_html=True)
     st.subheader("품목 입력")
     
     if app_type == "경비물품":
@@ -689,7 +802,8 @@ if menu == "신청서 작성":
         for idx, item in enumerate(st.session_state.uniform_items):
             iid = item['_id']
             with st.container():
-                st.markdown(f"##### 신청자 {idx+1}")
+                st.markdown(f'<div class="item-row">', unsafe_allow_html=True)
+                st.markdown(f"<div style='font-weight:600; color:var(--primary); margin-bottom:0.5rem;'>신청자 {idx+1}</div>", unsafe_allow_html=True)
                 cols1 = st.columns([1, 1, 1.5, 0.7, 0.7, 0.6, 0.7, 0.4])
                 with cols1[0]:
                     item['업종'] = st.selectbox('업종', ['관리직', '경비직'], index=['관리직', '경비직'].index(item.get('업종', '경비직')), key=f"job_{iid}")
@@ -768,8 +882,7 @@ if menu == "신청서 작성":
                                     del st.session_state[wkey_prefix]
                             item['product_count'] = product_count - 1
                             st.rerun()
-                
-                st.divider()
+                st.markdown('</div>', unsafe_allow_html=True)
         
         if items_to_delete:
             for idx in sorted(items_to_delete, reverse=True):
@@ -833,15 +946,19 @@ if menu == "신청서 작성":
         
         edited_uniform = pd.DataFrame(st.session_state.uniform_items)
     
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="card-container">', unsafe_allow_html=True)
+    st.subheader("비고 및 참고사항")
     default_remarks = draft_meta.get('remarks', '') if draft_meta else ''
     remarks_placeholder = "예) 다원피엠씨입니다." if app_type == "경비물품" else "예) 동계상의 00벌, 동계하의 00벌입니다."
     remarks = st.text_area(
         "비고 / 참고사항",
         value=default_remarks,
-        placeholder=remarks_placeholder
+        placeholder=remarks_placeholder,
+        label_visibility="collapsed"
     )
-    
-    st.divider()
+    st.markdown('</div>', unsafe_allow_html=True)
     
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     

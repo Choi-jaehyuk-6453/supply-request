@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+supply_request.db
+drafts.json
+drafts.json.migrated
+.replit
+.local/
+migrate_data.py
+migrate_to_supabase.py
+uv.lock
