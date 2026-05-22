@@ -1123,8 +1123,12 @@ if menu == "신청서 작성":
         with col_send:
             st.subheader("이메일 전송")
             
-            smtp_email = os.environ.get("SMTP_EMAIL", "")
-            smtp_password = os.environ.get("SMTP_PASSWORD", "")
+            try:
+                smtp_email = st.secrets.get("SMTP_EMAIL", os.environ.get("SMTP_EMAIL", ""))
+                smtp_password = st.secrets.get("SMTP_PASSWORD", os.environ.get("SMTP_PASSWORD", ""))
+            except Exception:
+                smtp_email = os.environ.get("SMTP_EMAIL", "")
+                smtp_password = os.environ.get("SMTP_PASSWORD", "")
             
             if not smtp_email or not smtp_password:
                 st.warning("SMTP 설정이 필요합니다. Secrets에 SMTP_EMAIL과 SMTP_PASSWORD를 설정해주세요.")
