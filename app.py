@@ -1192,7 +1192,11 @@ elif menu == "신청내역조회":
     df = get_master_data()
     
     if not df.empty:
-        df['날짜'] = pd.to_datetime(df['날짜'], errors='coerce')
+        try:
+            if '날짜' in df.columns:
+                df['날짜'] = pd.to_datetime(df['날짜'], errors='coerce')
+        except Exception as e:
+            st.warning(f"날짜 데이터 변환 중 일부 누락이 발생했습니다: {str(e)}")
         
         st.markdown("### 검색 필터")
         col_filter1, col_filter2, col_filter3, col_filter4 = st.columns(4)

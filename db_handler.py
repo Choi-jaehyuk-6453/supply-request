@@ -333,7 +333,7 @@ def get_master_data_db():
         data = []
         for app in applications:
             data.append({
-                '날짜': app.date,
+                '날짜': app.date.strftime('%Y-%m-%d') if app.date else '',
                 '구분': app.app_type,
                 '법인명': app.company,
                 '현장명': app.site_name,
